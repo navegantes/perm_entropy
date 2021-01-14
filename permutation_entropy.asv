@@ -18,13 +18,12 @@ hdatas   = cell(5, length(subj_list));
 hsurdata = cell(5, length(subj_list));
 sbj_dt = struct();
 
-savesurdata = false;
-istheresfile = true;
-
+% slcs = 1:300:1801;
 ep_len = 120; % (s)
 tmin = 10;
 tmax = 1940;
 
+% i = 1;
 for suj=1:length(subj_list)
     p_list = dataPath + subj_list(suj) + '\NFB\';
     dir_info = dir(char(p_list));
@@ -36,7 +35,6 @@ for suj=1:length(subj_list)
     if ~isfile(char('datas/'+sbj_dt(suj).name+'/'+sbj_dt(suj).name+'.mat'))
         mkdir(char('datas/' +sbj_dt(suj).name))
         istheresfile = false;
-        savesurdata = true;
     else
         load(char('datas/'+sbj_dt(suj).name+'/'+sbj_dt(suj).name+'.mat'))
         istheresfile = true;
@@ -82,12 +80,9 @@ for suj=1:length(subj_list)
     end
     
     if savesurdata
-        disp('>> Saving surDatas...')
-        save(char('datas/'+sbj_dt(suj).name+'/'+sbj_dt(suj).name), 'surdatas');
+        save(char('datas/'+sbj_dt(suj).name+'/'+sbj_dt(suj).name), 'surdatas')
     end
 end
-
-disp('COMPLETE!!')
             
 %             % split datas in epochs of ep_len seconds
 %             EEGepch = eeg_regepochs(EEG, 'recurrence', ep_len, 'limits', [0 ep_len],'eventtype', 'trial');
