@@ -2,6 +2,7 @@
 % - entropia de permutação
 % - entropia aproximada
 % 	- Surrogate
+% Teste multi-repos
     
 close all
 clear
