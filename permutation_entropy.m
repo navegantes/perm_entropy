@@ -45,7 +45,8 @@ for suj=1:length(subj_list)
     for sess=1:length(sbj_dt(suj).folders)
         folder = sbj_dt(suj).folders(sess);
         splt = split(folder, '-');
-        ffilename = p_list + folder{1}+'\'+subj_list(suj)+'-'+splt(2)+'_S'+num2str(sess)+'.edf';
+        ffilename = p_list + folder{1}+'\'+subj_list(suj)+...
+                    '-'+splt(2)+'_S'+num2str(sess)+'.edf';
         sbj_dt(suj).fullpath{sess} = ffilename;
         
         if ~isfile(ffilename)

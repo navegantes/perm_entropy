@@ -1,1 +1,1 @@
-# perm_entrpy
+# perm_entropy
