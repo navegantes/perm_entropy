@@ -3,6 +3,7 @@
 % - entropia aproximada
 % 	- Surrogate
 % Teste multi-repos
+% Teste2 multi-repos login
     
 close all
 clear
