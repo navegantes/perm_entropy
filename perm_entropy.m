@@ -13,7 +13,7 @@ addpath('PE');
 addpath('functions')
 
 dataPath = 'D:\Users\NFB\Pacientes\';
-subj_list = ["JLC"]; % ["EYK", "JLC", "JRJ", "SAJ"];
+subj_list = ["JLC", "EYK"]; % ["EYK", "JLC", "JRJ", "SAJ"];
 % subj_len = length(subj_list);
 hdatas   = cell(5, length(subj_list));
 wess_dist = cell(5, length(subj_list));
@@ -25,17 +25,12 @@ savesurdata = false;
 istheresfile = true;
 
 ep_len = 120; % (s)
-tmin = 10;
-tmax = 1940;
+tslice = {[10 1940], [0 60], [60 1860], [1860 1920]};  %tmin = 10; tmax = 1940;
 
 for suj=1:length(subj_list)
-    p_list = dataPath + subj_list(suj) + '\NFB\';
-    dir_info = dir(char(p_list));
-    sess_dir = {dir_info.name};
-    sbj_dt(suj).name = subj_list(suj);
-    sbj_dt(suj).path = p_list;
-    sbj_dt(suj).folders = sess_dir(3:end);
+    sbj_dt = sbj_data(dataPath, sbj_dt, subj_list(suj), suj );
     
+    % checa se dados de surrogate já foram gerados
     if ~isfile(char('datas/'+sbj_dt(suj).name+'/'+sbj_dt(suj).name+'.mat'))
         mkdir(char('datas/' +sbj_dt(suj).name))
         istheresfile = false;
@@ -48,7 +43,7 @@ for suj=1:length(subj_list)
     for sess=1:length(sbj_dt(suj).folders)
         folder = sbj_dt(suj).folders(sess);
         splt = split(folder, '-');
-        ffilename = p_list + folder{1}+'\'+subj_list(suj)+...
+        ffilename = sbj_dt(suj).path + folder{1}+'\'+subj_list(suj)+...
                     '-'+splt(2)+'_S'+num2str(sess)+'.edf';
         sbj_dt(suj).fullpath{sess} = ffilename;
         
@@ -64,18 +59,19 @@ for suj=1:length(subj_list)
             % Fitragem passa-faixa.
             EEG = pop_eegfiltnew(EEG, 1,100,850,0,[],0);
             % tmin = 10; tmax = 1940;
-            EEG = pop_select( EEG,'time',[tmin tmax] );
+            EEG = pop_select( EEG,'time', tslice{1,1} );
             
-            sbj_dt(suj).tasks.bs1 = pop_select( EEG,'time',[0 60] );
-            sbj_dt(suj).tasks.nfb = pop_select( EEG,'time',[60 1860] );
-            sbj_dt(suj).tasks.bs2 = pop_select( EEG,'time',[1860 1920] );
+            % sbj_dt(suj).tasks.
+            eegbs1 = pop_select( EEG,'time', tslice{1,2} );
+            eegnfb = pop_select( EEG,'time', tslice{1,3} );
+            eegbs2 = pop_select( EEG,'time', tslice{1,4} );
             
             % Surrogates
-            if ~istheresfile % || updatesurdata
+            if istheresfile % || updatesurdata
+                disp('>> Surrogates already loaded...')
+            else
                 disp('>> Calculating Surrogates...')
                 surdatas{sess, suj} = IAAFTsur(EEG.data(1,:, :), 1);
-            else
-                disp('>> Surrogates already loaded...')
             end
             
             delay = 1; % delay 1 between points in ordinal patterns (successive points)
@@ -97,7 +93,7 @@ for suj=1:length(subj_list)
         save(char('datas/'+sbj_dt(suj).name+'/'+sbj_dt(suj).name), 'surdatas');
     end
     
-    show_subj_permH(EEG.times, subj_list(1), hdatas, hsurdata);
+%     show_subj_permH(EEG.times, subj_list(1), hdatas, hsurdata);
 end
 
 disp('COMPLETE!!')
@@ -115,7 +111,6 @@ disp('COMPLETE!!')
 %             end
 % %             hdatas{sess, suj} = PE(EEG.data(1,:)', delay, order, windowSize);
 %             hdatas{sess, suj} = mean(cell2mat(epoch_dt));
-
 
 
 
@@ -215,3 +210,17 @@ end
 % plot(time, perm_H(1:length(time)));
 
 %% -----------------------------------------------------------------
+
+
+function sbj_dt = sbj_data(dataPath, sbj_dt, sujname, indx)
+
+%     for suj=1:length(subj_list)
+    p_list = dataPath + sujname + '\NFB\';
+    dir_info = dir(char(p_list));
+    sess_dir = {dir_info.name};
+    sbj_dt(indx).name = sujname;
+    sbj_dt(indx).path = p_list;
+    sbj_dt(indx).folders = sess_dir(3:end);
+    sbj_dt(indx).dir_info = dir_info;
+%     end
+end
