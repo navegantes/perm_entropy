@@ -6,32 +6,37 @@ clc;
 
 addpath('PE');
 
-
-
 tmin = 10;
 tmax = 1930;
 RWD_label = 'RWD-250';
 ev_duration = '.250<=2'; %(s)
 
 % Read from csv file
-[ALLEEG EEG CURRENTSET ALLCOM] = eeglab;
-fl = 'D:\Users\NFB\Pacientes\JLC\NFB\nfb-210120\JLC-210120_S2.csv';
-file = csvread(fl, 2, 0);
+% [ALLEEG EEG CURRENTSET ALLCOM] = eeglab;
+csv_file = 'D:\Users\NFB\Pacientes\JLC\NFB\nfb-210120\JLC-210120_S2.csv';
+file = csvread(csv_file, 2, 0);
 file = file';
-EEG = pop_importdata( 'setname', 'JLC-210120_S2-csv', 'data', file, 'nbchan', 13,...
-                      'dataformat', 'array', 'srate', 256);
-EEGcsv = pop_select( EEG,'time',[tmin tmax] );
 
+rawCSV = pop_importdata( 'setname', 'JLC-210120_S2-csv', ...
+                         'data', file, ...
+                         'nbchan', 13,...
+                         'dataformat', 'array', ...
+                         'srate', 256);
+                  
+EEGcsv = pop_select( rawCSV, 'time',[tmin tmax] );
+
+%% ------------------------------------------------------------------------
 %Read from edf file
-fl = 'D:\Users\NFB\Pacientes\JLC\NFB\nfb-210120\JLC-210120_S2.edf';
-EEG = pop_biosig('D:\Users\NFB\Pacientes\JLC\NFB\nfb-210120\JLC-210120_S2.edf', 'importevent','off');
-[ALLEEG, EEG, CURRENTSET] = pop_newset(ALLEEG, EEG, 0, 'setname', 'JLC-210120_S2-edf', 'gui','off');
+edf_file = 'D:\Users\NFB\Pacientes\JLC\NFB\nfb-210120\JLC-210120_S2.edf';
+EEG = pop_biosig(edf_file, 'importevent','off');
+% [ALLEEG, EEG, CURRENTSET] = pop_newset(ALLEEG, EEG, 0, 'setname', 'JLC-210120_S2-edf', 'gui','off');
 EEG = pop_select( EEG,'time',[tmin-1 tmax-1] );
-EEG = eeg_checkset( EEG );
-eeglab redraw;
+% EEG = eeg_checkset( EEG );
+% eeglab redraw;
 
 % Fitragem passa-faixa.
-EEG    = pop_eegfiltnew(EEG, 1,100,900,0,[],0);
+EEG = pop_eegfiltnew(EEG, 1,100,900,0,[],0);
+
 % RWD and Amp bands, theta smr hibeta, from csv file
 chanlist = [11 2 5 8];
 for chan=1:length(chanlist)
@@ -48,6 +53,7 @@ for f=1:length(fminmax)
     EEG.data(end+1,:) = abs(hilb).^2;
 end
 
+
 delay = 1; % delay 1 between points in ordinal patterns (successive points)
 order = 3; % order 3 of ordinal patterns (4-points ordinal patterns)
 windowSize = 4*EEG.srate;
@@ -58,8 +64,8 @@ H_perm(1:length(h)) = h;
 EEG.data(end+1,:) = H_perm; 
 
 EEG.nbchan = size(EEG.data,1);
-[ALLEEG, EEG, CURRENTSET] = eeg_store(ALLEEG, EEG, CURRENTSET);
-eeglab redraw;
+% [ALLEEG, EEG, CURRENTSET] = eeg_store(ALLEEG, EEG, CURRENTSET);
+% eeglab redraw;
 % pop_eegplot( EEG, 1, 1, 1);
 
 
@@ -74,19 +80,21 @@ EEG = pop_selectevent( EEG, 'latency','60<=1860','duration',ev_duration,...
 % disp([newline 'Epochs']);
 EEG = pop_epoch( EEG, { RWD_label }, [-0.3 0.5], ...
                  'newname', 'JLC-210120_S2-epochs', 'epochinfo', 'yes');
+             
 %% --------------------------------------------------------------------------
 [ALLEEG, EEG, CURRENTSET] = pop_newset(ALLEEG, EEG, 1,'gui','off');
 EEG = eeg_checkset( EEG );
 eeglab redraw;
 
-hdatas   = cell(sz(3));
 sz = size(EEG.data);
+hdatas   = cell(sz(3));
+
 delay = 1; % delay 1 between points in ordinal patterns (successive points)
 order = 3; % order 3 of ordinal patterns (4-points ordinal patterns)
 windowSize = 4*EEG.srate;
 
-for i=1:
-hdatas = PE(sbj_dt(EEG.data(1,:, :)', delay, order, windowSize);
+% for i=1:
+hdatas = PE(sbj_dt(EEG.data(1,:, :)', delay, order, windowSize));
 
 
 

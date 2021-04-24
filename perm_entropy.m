@@ -25,7 +25,7 @@ savesurdata = false;
 istheresfile = true;
 
 ep_len = 120; % (s)
-tslice = {[10 1940], [0 60], [60 1860], [1860 1920]};  %tmin = 10; tmax = 1940;
+tslice = {[10 1930], [0 60], [60 1860], [1860 1920]};  %tmin = 10; tmax = 1940;
 
 for suj=1:length(subj_list)
     sbj_dt = sbj_data(dataPath, sbj_dt, subj_list(suj), suj );
