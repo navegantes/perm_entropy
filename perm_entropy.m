@@ -13,7 +13,7 @@ addpath('PE');
 addpath('functions')
 
 dataPath = 'D:\Users\NFB\Pacientes\';
-subj_list = ["JLC", "EYK"]; % ["EYK", "JLC", "JRJ", "SAJ"];
+subj_list = ["JLC"];%, "EYK"]; % ["EYK", "JLC", "JRJ", "SAJ"];
 % subj_len = length(subj_list);
 hdatas   = cell(5, length(subj_list));
 wess_dist = cell(5, length(subj_list));
@@ -79,8 +79,8 @@ for suj=1:length(subj_list)
             windowSize = 4*EEG.srate;
             %Computing Entropy
             disp('>> Calculating PE...')
-%             hdatas{sess, suj}   = PE(EEG.data(1,:, :)', delay, order, windowSize);
-            hdatas{sess, suj}   = PE(sbj_dt(suj).tasks.nfb.data(1,:, :)', delay, order, windowSize);
+            hdatas{sess, suj}   = PE(EEG.data(1,:, :)', delay, order, windowSize);
+%             hdatas{sess, suj}   = PE(sbj_dt(suj).tasks.nfb.data(1,:, :)', delay, order, windowSize);
             disp('>> Calculating PE on surrogates...')
             hsurdata{sess, suj} = PE(surdatas{sess, suj}', delay, order, windowSize);
             disp('>> Calculating Wessertein...')
@@ -93,7 +93,7 @@ for suj=1:length(subj_list)
         save(char('datas/'+sbj_dt(suj).name+'/'+sbj_dt(suj).name), 'surdatas');
     end
     
-%     show_subj_permH(EEG.times, subj_list(1), hdatas, hsurdata);
+    show_subj_permH(EEG.times, subj_list(1), hdatas, hsurdata);
 end
 
 disp('COMPLETE!!')

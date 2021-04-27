@@ -1,6 +1,6 @@
 
 chdir 'D:\Users\Sources\Entropy\perm_entropy';
-%% ------------------------------------------------------------------------
+%% -----------------------------------------------------------------
 
 close all;
 clear;
@@ -13,10 +13,13 @@ tmin = 10;
 tmax = 1930;
 RWD_label = 'RWD-250';
 ev_duration = '.250<=2'; %(s)
+
 % ------------------------------------------------------------------------
 % Read from csv file
 % [ALLEEG, EEG, CURRENTSET, ALLCOM] = eeglab;
 csv_file = 'D:\Users\NFB\Pacientes\JLC\NFB\nfb-210120\JLC-210120_S2.csv';
+edf_file = 'D:\Users\NFB\Pacientes\JLC\NFB\nfb-210120\JLC-210120_S2.edf';
+
 file = csvread(csv_file, 2, 0);
 file = file';
 
@@ -29,73 +32,99 @@ rawCSV = pop_importdata( 'setname', 'JLC-210120_S2-csv', ...
 EEGcsv = pop_select( rawCSV, 'time',[tmin+1 tmax+1] );
 
 %Read from edf file
-edf_file = 'D:\Users\NFB\Pacientes\JLC\NFB\nfb-210120\JLC-210120_S2.edf';
 EEG = pop_biosig(edf_file, 'importevent','off');
 % [ALLEEG, EEG, CURRENTSET] = pop_newset(ALLEEG, EEG, 0, 'setname', 'JLC-210120_S2-edf', 'gui','off');
 EEG = pop_select( EEG,'time',[tmin tmax] );
 % EEG = eeg_checkset( EEG );
 % eeglab redraw;
 
+% muda os labels dos canais
+labels = {'EEG','ECG'};
+for i=1:2
+    EEG.chanlocs(i).labels = labels{i};
+end
+
 % Fitragem passa-faixa.
 EEG = pop_eegfiltnew(EEG, 1,100,900,0,[],0);
+
 % ------------------------------------------------------------------------
 % Adiciona os canais (11, 2, 5, 8) RWD e Amplitudes theta SMR hibeta, do csv.
-% RWD_chan = 11;
+labels = {'RWD' 'Theta:Amp' 'SMR:Amp' 'Hibeta:Amp' 'Theta:Power'...
+          'SMR:Power' 'Hibeta:Power' 'Alpha:Power'};
 chanlist = [11 2 5 8];
 for chan=1:length(chanlist)
     EEG.data(end+1,:) = EEGcsv.data(chanlist(chan), :);
-%     EEG.data(end+1,:) = EEGcsv.data(RWD_chan, :);
+    EEG.nbchan = EEG.nbchan + 1;
+    EEG.chanlocs(chan+2).labels = labels{chan};
 end
 
 % ------------------------------------------------------------------------
+% Adiciona potencias instantaneas theta, SMR, hbeta, alpha
+
 fminmax = {[4 7] [12 15] [20 30] [8 12]};
+lenfmM = length(fminmax);
 for f=1:length(fminmax)
     freq = fminmax{f};
     EEGfilt = pop_eegfiltnew(EEG, freq(1),freq(2),900,0,[],0);
     hilb = hilbert(EEGfilt.data(1, :));
     EEG.data(end+1,:) = abs(hilb).^2;
+    EEG.nbchan = EEG.nbchan + 1;
+    EEG.chanlocs(f+6).labels = labels{f+lenfmM};
 end
 
-% -----------------------------------------------------------------
-% Cria os eventos e extrai os trials
-% EEGnfb = pop_select( EEG,'time',[60 1860] );
-ev_range = [-0.5 0.5];
+%% -----------------------------------------------------------------
+% Calcula entropia permutação e gera surrogate, inclui no objeto EEG
+[Hdatas, EEG] = fntools.hsurdata(EEG);
+
+%% -----------------------------------------------------------------
+% Cria os eventos e extrai trials        % EEGnfb = pop_select( EEG,'time',[60 1860] );
+ev_range = [-.3 .5];
 rwdchan = 3;
 latency = '60<=1860';
-EEGev = fn_tools.create_events(EEG, rwdchan, latency, RWD_label, ev_duration, ev_range);
+EEGev = fntools.create_events(EEG, rwdchan, latency, RWD_label, ev_duration, ev_range);
 
 %% -----------------------------------------------------------------
-[~, len, num] = size(EEGev.data);
-surdatas = cell(num, 1);
+% -------------------------------------------------------------------------
+% VISUALIZACAO
+% -------------------------------------------------------------------------
+% Mostra o espectro (confirmar resultado do feedback)
+f_range = [1 50];
+data = permute(EEGev.data(1,:,:), [2 3 1]);
+[time, frex] = fntools.show_evspec(data, EEGev.srate, ev_range, f_range);
 
-for i=1:num
-    surdatas{i} = IAAFTsur(EEGev.data(1,:, i), 1);
+%% -----------------------------------------------------------------
+[~] = fntools.show_erp_events(EEGev, RWD_label);
+
+%% -----------------------------------------------------------------
+Hperm = fntools.evpermentropy(EEGev);
+
+%% -----------------------------------------------------------------
+wess_dist = zeros(1,size(Hperm,1));
+for i=1:size(Hperm,1)
+    wess_dist(i) = ws_distance(EEGev.data(12,:,i), EEGev.data(13,:,i),1);
 end
 
+%% -----------------------------------------------------------------
 figure;
 hold on;
-for i=1:10
-    plot(surdatas{i})
-end
+plot(Hdatas.permH(1:end-5*256-2));
+plot(Hdatas.surpermH(1:end-5*256-2));
 hold off;
 
-%% -----------------------------------------------------------------
-[~] = fn_tools.show_erp_events(EEGev, RWD_label);
-%% -----------------------------------------------------------------
-Hperm = fn_tools.evpermentropy(EEGev);
 %% -----------------------------------------------------------------
 figure;
 hold on;
 for i=1:20
-    plot(Hperm(i,:))
+    plot(Hperm(i,1:size(Hperm,2)-round(256/12)-2));
 end
 hold off;
 
+%% -----------------------------------------------------------------
 figure;
 hold on;
 [~, len, num] = size(EEGev.data);
 for i=1:20
-    plot(EEGev.data(1,:, i))
+    plot(EEGev.data(13,:, i))
 end
 hold off;
 %% -----------------------------------------------------------------
