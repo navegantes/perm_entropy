@@ -1,6 +1,16 @@
 classdef fntools
     methods (Static)
-        function [Hdatas, EEG] = hsurdata(EEG) %, delay, order, windowSize)
+        function [Hdatas, EEG] = pesurdata(EEG, filename) %, delay, order, windowSize)
+            % JLC-240120_S5
+%             surfilename = filename{end};
+            sbjname = strsplit(filename, {'-'});
+            sbjname = sbjname(1);
+%             session = strsplit(filename, '_');
+%             session = session(2);
+            surfolder = "datas/" + sbjname + "/sur/";
+
+            savesurdata = false;
+            istherefile = true;
             
             [~, npnts] = size(EEG.data);
             Hdatas = struct();
@@ -11,45 +21,45 @@ classdef fntools
 
             delay = 1; % delay 1 between points in ordinal patterns (successive points)
             order = 3; % order 3 of ordinal patterns (4-points ordinal patterns)
-            windowSize = 5*EEG.srate;
+            windowSize = floor(2*EEG.srate); %5*EEG.srate;
             
-            surdata = IAAFTsur(EEG.data(1,:, :), 1);
+            if ~isfile(surfolder + filename + ".mat")
+                mkdir(char(surfolder));
+                istherefile = false;
+                savesurdata = true;
+            end
+            
+            if istherefile % || updatesurdata
+%                 disp('>> Surrogates already loaded...');
+                disp('>> Loading surrogates from file...')
+                load(surfolder + filename + ".mat", 'surdata');
+            else
+                disp('>> Calculating Surrogates...');
+                surdata = IAAFTsur(EEG.data(1,:, :), 1);
+            end
+            
+%             surdata = IAAFTsur(EEG.data(1,:, :), 1);
             permH(1:npnts-windowSize-2) = PE(EEG.data(1,:, :)', delay, order, windowSize);
             surpermH(1:npnts-windowSize-2) = PE(surdata', delay, order, windowSize);
             
             data = {surdata, permH, surpermH};
-
-            for i=1:3
-                EEG.data(end+1,:) = data{i};
-                EEG.nbchan = EEG.nbchan + 1;
-                EEG.chanlocs(end+1).labels = labels{i};
+            
+            [row, ~] = size(EEG.data);
+            if row < 11
+                for i=1:3
+                    EEG.data(end+1,:) = data{i};
+                    EEG.nbchan = EEG.nbchan + 1;
+                    EEG.chanlocs(end+1).labels = labels{i};
+                end
             end
             
             Hdatas.surdata = surdata;
             Hdatas.permH = permH;
             Hdatas.surpermH = surpermH;
-%             EEG.data(end+1,:) = Hdatas.surdata;
-%             EEG.data(end+1,:) = Hdatas.permH;
-%             EEG.data(end+1,:) = Hdatas.surpermH;
-        end
             
-% -------------------------------------------------------------------------
-        function EEG = show_erp_events(EEG, RWD_label)
-%             RWD_label = 'RWD-250';
-            pop_eegplot( EEG, 1, 1, 1);
-
-            smooth = 5;
-            chans = [1 4 5 6 7 8 9 10];
-            band_labels = {'EEG' 'Theta Amp' 'SMR Amp' 'Hibeta Amp' 'Theta Power'...
-                           'SMR Power' 'Hibeta Power' 'Alpha Power'};
-            ylims = {[-1 1] [2 8] [3 5] [1 7] [4 21] [5 9] [1 10] [14 25]};
-
-            for i=1:length(chans)
-                figure;
-                pop_erpimage(EEG,1, chans(i),[],band_labels{i}, ...
-                             smooth,1,{RWD_label},[],'epoch' ,...
-                             'yerplabel','\muV','erp','on','cbar','on', ...
-                             'limits',[NaN NaN ylims{i} NaN NaN NaN NaN] );
+            if savesurdata
+                disp('>> Saving surDatas...')
+                save(surfolder + filename, 'surdata');
             end
         end
 % -------------------------------------------------------------------------
@@ -71,7 +81,6 @@ classdef fntools
                 latency = '60<=1860';
             end
             
-            
             % define os eventos  disp([newline 'Def events']);
             EEG = pop_chanevent( EEG, chan, 'edge', 'leading', 'duration', 'on',...
                                  'typename', 'RWD', 'delchan', 'off', 'edgelen', 1);
@@ -83,40 +92,40 @@ classdef fntools
                              'newname', 'JLC-210120_S2-epochs', 'epochinfo', 'yes'); 
         end
 % -------------------------------------------------------------------------
-        function H_perm = evpermentropy(EEG)
+        function perm_entr = pe_bytrials(EEG, chan)
             addpath('PE');
             
             [~, len, numevnts] = size(EEG.data);
             delay = 1; % delay 1 between points in ordinal patterns (successive points)
             order = 3; % order 3 of ordinal patterns (4-points ordinal patterns)
-            windowSize = round(EEG.srate/12);
+            windowSize = floor(.25*EEG.srate); %floor(EEG.srate/12);
             
-            H_perm = zeros(numevnts, len);
+            perm_entr = zeros(numevnts, len);
             for iev=1:numevnts
-                h = PE(EEG.data(1,:, iev)', delay, order, windowSize);
-                H_perm(iev, 1:length(h)) = h;
+                h = PE(EEG.data(chan,:, iev)', delay, order, windowSize);
+                perm_entr(iev, 1:length(h)) = h;
                 %Computing Entropy
                 %EEG.data(end+1,:) = H_perm; 
             end
         end
 % -------------------------------------------------------------------------
-        function [time, frex] = show_evspec(data, fs, t_range, f_range)
+        function savefigure(gcf, edf_file, figlabel)
             
-%             p_data = permute(data(1,:,:), [2 3 1]);
-            len_time= size(data,1);
-            time = t_range(1):1/fs:t_range(2);
-            time = time(1:len_time);
-%             time = linspace(t_range(1), t_range(2), fs);
-            num_frex= round(f_range(2)-f_range(1));
-            frex = logspace(log10(f_range(1)), log10(f_range(2)), num_frex);
+            currpath = pwd;
             
-            d_spec= wav_timeFreq(data, fs, f_range(1), f_range(2));
+            sbjName = strsplit(edf_file, "\");
+            sbjName = sbjName{5};
+            figDir = join([currpath, "fig", sbjName], "\");
+            session = strsplit(edf_file(end-5:end), '.');
+            session = session(1);
+
+            fileName = join([sbjName, session{1}, figlabel], "_");
+            fullName = join([figDir, fileName], "\");
+            figName = join([fullName "png"], ".");
+            saveas(gcf,figName);
             
-            figure;
-            contourf(time, frex, d_spec, 20, 'linecolor', 'none')
-            xlabel('Time (s)');
-            ylabel('Frequency (Hz)');
-            colorbar;
+            disp("Figure save at " +figName);
         end
+% -------------------------------------------------------------------------
     end
 end

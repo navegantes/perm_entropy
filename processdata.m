@@ -6,19 +6,36 @@ close all;
 clear;
 clc;
 
+currpath = 'D:\Users\Sources\Entropy\perm_entropy';
+chdir(currpath)
+
 addpath('PE');
 addpath('functions')
 
 tmin = 10;
-tmax = 1930;
+tmax = 1939;
 RWD_label = 'RWD-250';
 ev_duration = '.250<=2'; %(s)
 
-% ------------------------------------------------------------------------
+% -------------------------------------------------------------------------
 % Read from csv file
-% [ALLEEG, EEG, CURRENTSET, ALLCOM] = eeglab;
-csv_file = 'D:\Users\NFB\Pacientes\JLC\NFB\nfb-210120\JLC-210120_S2.csv';
-edf_file = 'D:\Users\NFB\Pacientes\JLC\NFB\nfb-210120\JLC-210120_S2.edf';
+% csv_file = 'D:\Users\NFB\Pacientes\JLC\NFB\nfb-200120\JLC-200120_S1.csv';
+% edf_file = 'D:\Users\NFB\Pacientes\JLC\NFB\nfb-200120\JLC-200120_S1.edf';
+% csv_file = 'D:\Users\NFB\Pacientes\JLC\NFB\nfb-210120\JLC-210120_S2.csv';
+% edf_file = 'D:\Users\NFB\Pacientes\JLC\NFB\nfb-210120\JLC-210120_S2.edf';
+% csv_file = 'D:\Users\NFB\Pacientes\JLC\NFB\nfb-220120\JLC-220120_S3.csv';
+% edf_file = 'D:\Users\NFB\Pacientes\JLC\NFB\nfb-220120\JLC-220120_S3.edf';
+% csv_file = 'D:\Users\NFB\Pacientes\JLC\NFB\nfb-230120\JLC-230120_S4.csv';
+% edf_file = 'D:\Users\NFB\Pacientes\JLC\NFB\nfb-230120\JLC-230120_S4.edf';
+csv_file = 'D:\Users\NFB\Pacientes\JLC\NFB\nfb-240120\JLC-240120_S5.csv';
+edf_file = 'D:\Users\NFB\Pacientes\JLC\NFB\nfb-240120\JLC-240120_S5.edf';
+% -------------------------------------------------------------------------
+
+spltpath = strsplit(edf_file, {'\', '.'});
+filename = spltpath(8);
+sbjName = spltpath(5);
+session = strsplit(filename{1}, '_');
+session = session(2);
 
 file = csvread(csv_file, 2, 0);
 file = file';
@@ -31,14 +48,12 @@ rawCSV = pop_importdata( 'setname', 'JLC-210120_S2-csv', ...
                      
 EEGcsv = pop_select( rawCSV, 'time',[tmin+1 tmax+1] );
 
+% -------------------------------------------------------------------------
 %Read from edf file
 EEG = pop_biosig(edf_file, 'importevent','off');
-% [ALLEEG, EEG, CURRENTSET] = pop_newset(ALLEEG, EEG, 0, 'setname', 'JLC-210120_S2-edf', 'gui','off');
 EEG = pop_select( EEG,'time',[tmin tmax] );
-% EEG = eeg_checkset( EEG );
-% eeglab redraw;
 
-% muda os labels dos canais
+% Muda as labels dos canais
 labels = {'EEG','ECG'};
 for i=1:2
     EEG.chanlocs(i).labels = labels{i};
@@ -69,34 +84,75 @@ for f=1:length(fminmax)
     hilb = hilbert(EEGfilt.data(1, :));
     EEG.data(end+1,:) = abs(hilb).^2;
     EEG.nbchan = EEG.nbchan + 1;
-    EEG.chanlocs(f+6).labels = labels{f+lenfmM};
+    EEG.chanlocs(f+lenfmM+2).labels = labels{f+lenfmM};
 end
 
-%% -----------------------------------------------------------------
-% Calcula entropia permutação e gera surrogate, inclui no objeto EEG
-[Hdatas, EEG] = fntools.hsurdata(EEG);
+disp('Done...');
 
-%% -----------------------------------------------------------------
+% % -----------------------------------------------------------------
+% Gera surrogate e calcula entropia permutação, inclui no objeto EEG
+[PEdata, EEG] = fntools.pesurdata(EEG, filename{1});
+EEG = pop_select( EEG,'time',[0 1920] );
+% disp('Entropia e Surrogate terminado...');
+
+% bs1 = pop_select( EEG,'time',[0 60] );
+% bs2 = pop_select( EEG,'time',[1860 1920] );
+
+% % -------------------------------------------------------------------------
 % Cria os eventos e extrai trials        % EEGnfb = pop_select( EEG,'time',[60 1860] );
-ev_range = [-.3 .5];
+ev_range = [-.3 .5]; % ms
 rwdchan = 3;
 latency = '60<=1860';
 EEGev = fntools.create_events(EEG, rwdchan, latency, RWD_label, ev_duration, ev_range);
 
+disp('Eventos criados...');
+
+% -------------------------------------------------------------------------
+% Calcula entropia permutação por trials
+% 1:dado, 11:surrogate, 12:PermH, %13:surpermH
+PEdata_bytrials = fntools.pe_bytrials(EEGev, 1);
+PESurr_bytrials = fntools.pe_bytrials(EEGev, 11);
+
+disp('Entropia e Surrgate terminado...');
 %% -----------------------------------------------------------------
 % -------------------------------------------------------------------------
 % VISUALIZACAO
 % -------------------------------------------------------------------------
 % Mostra o espectro (confirmar resultado do feedback)
+% figDir = join([currpath, "fig", sbjName], "\");
+show = true;
+
 f_range = [1 50];
-data = permute(EEGev.data(1,:,:), [2 3 1]);
-[time, frex] = fntools.show_evspec(data, EEGev.srate, ev_range, f_range);
+chans = [1 11];
+[time, frex, currfig] = vis.show_erpspectrum(EEGev, EEGev.srate, ev_range, f_range, chans);
+suptitle(session);
+% -------------------------------------------------------------------------
+% Saving fig
+fntools.savefigure(currfig, edf_file, "speccom");
+
+% % -----------------------------------------------------------------
+% Mostra espectro potencia PSD
+currfig = figure;
+pop_spectopo(EEGev, 1, [], 'EEG', 'freqrange', [1 45], 'plotchans', [1 11]);
+legend('C3 channel','Surrogate');
+fntools.savefigure(currfig, edf_file, "spectopo");
+
+% % -----------------------------------------------------------------
+% Visualiza PE dado e surrogate por trials;
+pefig = vis.show_evtrials(EEGev, ev_range);
+fntools.savefigure(pefig, edf_file, "petrials");
 
 %% -----------------------------------------------------------------
-[~] = fntools.show_erp_events(EEGev, RWD_label);
+% Comparação PE entre baseline Pre e Pos
+% Correlação
+basefig = vis.show_pebaselines(EEG);
+fntools.savefigure(basefig, edf_file, "pebases");
 
-%% -----------------------------------------------------------------
-Hperm = fntools.evpermentropy(EEGev);
+% % -----------------------------------------------------------------
+% % Checagem das condicoes de reconpensa NFB
+% % pop_eegplot( EEGev, 1, 1, 1);
+% [~] = vis.show_erp_events(EEGev, RWD_label);
+
 
 %% -----------------------------------------------------------------
 wess_dist = zeros(1,size(Hperm,1));
@@ -107,40 +163,40 @@ end
 %% -----------------------------------------------------------------
 figure;
 hold on;
-plot(Hdatas.permH(1:end-5*256-2));
-plot(Hdatas.surpermH(1:end-5*256-2));
+plot(PEdata.permH(1:end-5*256-2));
+plot(PEdata.surpermH(1:end-5*256-2));
 hold off;
 
 %% -----------------------------------------------------------------
 figure;
+[ntrials, lentime] = size(PEdata_bytrials);
 hold on;
-for i=1:20
-    plot(Hperm(i,1:size(Hperm,2)-round(256/12)-2));
+for trial=1:20
+    plot(time(1:139), PEdata_bytrials(trial, 1:139));
 end
 hold off;
+xlabel('Time (ms)');
+ylabel('Permutation Entropy');
+
+%% ----
+figure;
+hold on;
+for trial=1:20
+    plot(time(1:139), PESurr_bytrials(trial, 1:139));
+end
+hold off;
+xlabel('Time (ms)');
+ylabel('Permutation Entropy');
 
 %% -----------------------------------------------------------------
+% 11:surrogate, 12:PermH, %13:surpermH
 figure;
 hold on;
 [~, len, num] = size(EEGev.data);
 for i=1:20
-    plot(EEGev.data(13,:, i))
+    plot(time(1:139), EEGev.data(12,1:139, i));
 end
 hold off;
-%% -----------------------------------------------------------------
-delay = 1; % delay 1 between points in ordinal patterns (successive points)
-order = 3; % order 3 of ordinal patterns (4-points ordinal patterns)
-windowSize = 4*EEG.srate;
-H_perm = zeros(1, size(EEG.data(1,:), 2));
-h = PE(EEG.data(1,:)', delay, order, windowSize);
-H_perm(1:length(h)) = h;
-%Computing Entropy
-EEG.data(end+1,:) = H_perm; 
-
-EEG.nbchan = size(EEG.data,1);
-% [ALLEEG, EEG, CURRENTSET] = eeg_store(ALLEEG, EEG, CURRENTSET);
-% eeglab redraw;
-pop_eegplot( EEG, 1, 1, 1);
 
 %% -----------------------------------------------------------------
 % define os eventos  disp([newline 'Def events']);
