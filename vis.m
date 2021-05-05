@@ -22,9 +22,8 @@ classdef vis
             
             mM = minmax(minmax(cell2mat(d_spec))');
             
-            fig = figure;
-            set(fig, 'Visible', 'off');
-            disp("VISIBLE OFF");
+            fig = figure('visible','off');
+%             set(fig, 'Visible', 'off');
             
             fig.Position = [100 100 1080 720];
             for d=1:length(data)
@@ -141,6 +140,24 @@ function [fig] = show_evtrials(EEGev, ev_range)
             legend('Data','Surrogate');
             
             suptitle('PE Baselines');
+        end
+% -------------------------------------------------------------------------
+        function savefigure(fig, rootpath, filename, figlabel)
+            
+%             currpath = pwd;
+%             JLC-240120_S5
+            
+            sbjName = strsplit(filename, "-");
+            sbjName = sbjName{1};
+            figDir = join([rootpath, "fig", sbjName], "\");
+            
+            fullfilename = filename + "_" + figlabel;
+            fullName = join([figDir, fullfilename], "\");
+            figName = join([fullName "png"], ".");
+            
+            saveas(fig,figName);
+            
+            disp("Figure save at " + figName);
         end
 % -------------------------------------------------------------------------
     end

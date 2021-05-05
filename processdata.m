@@ -6,16 +6,14 @@ close all;
 clear;
 clc;
 
-currpath = 'D:\Users\Sources\Entropy\perm_entropy';
-chdir(currpath)
+rootpath = 'D:\Users\Sources\Entropy\perm_entropy';
+chdir(rootpath)
 
 addpath('PE');
 addpath('functions')
 
 tmin = 10;
 tmax = 1939;
-RWD_label = 'RWD-250';
-ev_duration = '.250<=2'; %(s)
 
 % -------------------------------------------------------------------------
 % Read from csv file
@@ -27,9 +25,12 @@ ev_duration = '.250<=2'; %(s)
 % edf_file = 'D:\Users\NFB\Pacientes\JLC\NFB\nfb-220120\JLC-220120_S3.edf';
 % csv_file = 'D:\Users\NFB\Pacientes\JLC\NFB\nfb-230120\JLC-230120_S4.csv';
 % edf_file = 'D:\Users\NFB\Pacientes\JLC\NFB\nfb-230120\JLC-230120_S4.edf';
-csv_file = 'D:\Users\NFB\Pacientes\JLC\NFB\nfb-240120\JLC-240120_S5.csv';
-edf_file = 'D:\Users\NFB\Pacientes\JLC\NFB\nfb-240120\JLC-240120_S5.edf';
+% csv_file = 'D:\Users\NFB\Pacientes\JLC\NFB\nfb-240120\JLC-240120_S5.csv';
+file = 'D:\Users\NFB\Pacientes\JLC\NFB\nfb-240120\JLC-240120_S5'; %.edf';
 % -------------------------------------------------------------------------
+% Init_process()
+csv_file = join([file, '.csv']);
+edf_file = join([file, '.edf']);
 
 spltpath = strsplit(edf_file, {'\', '.'});
 filename = spltpath(8);
@@ -87,33 +88,43 @@ for f=1:length(fminmax)
     EEG.chanlocs(f+lenfmM+2).labels = labels{f+lenfmM};
 end
 
+% clear EEGfilt;
+
 disp('Done...');
+% Init_process() Fim
 
-% % -----------------------------------------------------------------
+%% -----------------------------------------------------------------
 % Gera surrogate e calcula entropia permutação, inclui no objeto EEG
-[PEdata, EEG] = fntools.pesurdata(EEG, filename{1});
-EEG = pop_select( EEG,'time',[0 1920] );
-% disp('Entropia e Surrogate terminado...');
+% [PEdata, EEG] = fntools.pesurdata(EEG, filename{1});
+[EEG] = fntools.pesurdata(EEG, filename{1});
 
-% bs1 = pop_select( EEG,'time',[0 60] );
-% bs2 = pop_select( EEG,'time',[1860 1920] );
+%% -----------------------------------------------------------------
+% |-------|-------------------|----------|
+% 0  bs1  60       nfb       1860  bs2  1920
+% Separa trechos baseline
+% EEG = pop_select( EEG,'time',[0 1920] );
+NFB = pop_select( EEG,'time',[60 1860] );
+BS1 = pop_select( EEG,'time',[0 60] );
+BS2 = pop_select( EEG,'time',[1860 1920] );
 
-% % -------------------------------------------------------------------------
+%% -------------------------------------------------------------------------
 % Cria os eventos e extrai trials        % EEGnfb = pop_select( EEG,'time',[60 1860] );
 ev_range = [-.3 .5]; % ms
 rwdchan = 3;
-latency = '60<=1860';
-EEGev = fntools.create_events(EEG, rwdchan, latency, RWD_label, ev_duration, ev_range);
+latency = '0<=1800';
+RWD_label = 'RWD-250';
+ev_duration = '.250<=2'; %(s)
+EEGev = fntools.create_events(NFB, rwdchan, latency, RWD_label, ev_duration, ev_range);
 
 disp('Eventos criados...');
 
-% -------------------------------------------------------------------------
-% Calcula entropia permutação por trials
-% 1:dado, 11:surrogate, 12:PermH, %13:surpermH
+%% -------------------------------------------------------------------------
+% Calcula entropia permutação por trials   % 1:dado, 11:surrogate, 12:PermH, %13:surpermH
 PEdata_bytrials = fntools.pe_bytrials(EEGev, 1);
 PESurr_bytrials = fntools.pe_bytrials(EEGev, 11);
 
 disp('Entropia e Surrgate terminado...');
+
 %% -----------------------------------------------------------------
 % -------------------------------------------------------------------------
 % VISUALIZACAO
@@ -128,25 +139,25 @@ chans = [1 11];
 suptitle(session);
 % -------------------------------------------------------------------------
 % Saving fig
-fntools.savefigure(currfig, edf_file, "speccom");
+fntools.savefigure(currfig, rootpath, filename{1}, "speccom");
 
-% % -----------------------------------------------------------------
+%% -----------------------------------------------------------------
 % Mostra espectro potencia PSD
 currfig = figure;
 pop_spectopo(EEGev, 1, [], 'EEG', 'freqrange', [1 45], 'plotchans', [1 11]);
 legend('C3 channel','Surrogate');
-fntools.savefigure(currfig, edf_file, "spectopo");
+fntools.savefigure(currfig, rootpath, filename{1}, "spectopo");
 
 % % -----------------------------------------------------------------
 % Visualiza PE dado e surrogate por trials;
 pefig = vis.show_evtrials(EEGev, ev_range);
-fntools.savefigure(pefig, edf_file, "petrials");
+fntools.savefigure(pefig, rootpath, filename{1}, "petrials");
 
 %% -----------------------------------------------------------------
 % Comparação PE entre baseline Pre e Pos
 % Correlação
 basefig = vis.show_pebaselines(EEG);
-fntools.savefigure(basefig, edf_file, "pebases");
+fntools.savefigure(basefig, rootpath, filename{1}, "pebases");
 
 % % -----------------------------------------------------------------
 % % Checagem das condicoes de reconpensa NFB

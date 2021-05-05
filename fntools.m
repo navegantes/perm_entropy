@@ -1,16 +1,18 @@
 classdef fntools
     methods (Static)
-        function [Hdatas, EEG] = pesurdata(EEG, filename) %, delay, order, windowSize)
-            % JLC-240120_S5
-%             surfilename = filename{end};
+%         function [Hdatas, EEG] = pesurdata(EEG, filename, istherefile, savesurdata) %, delay, order, windowSize)
+        function [EEG] = pesurdata(EEG, filename, istherefile, savesurdata)
+            
+            if nargin < 3   % if the number of inputs equals 2
+              istherefile = true; % then make the third value, z, equal to my default value, 5.
+            end
+            if nargin < 4
+              savesurdata = false;
+            end
+            
             sbjname = strsplit(filename, {'-'});
             sbjname = sbjname(1);
-%             session = strsplit(filename, '_');
-%             session = session(2);
             surfolder = "datas/" + sbjname + "/sur/";
-
-            savesurdata = false;
-            istherefile = true;
             
             [~, npnts] = size(EEG.data);
             Hdatas = struct();
@@ -24,24 +26,25 @@ classdef fntools
             windowSize = floor(2*EEG.srate); %5*EEG.srate;
             
             if ~isfile(surfolder + filename + ".mat")
-                mkdir(char(surfolder));
+                if ~isfolder(surfolder)
+                    mkdir(char(surfolder));
+                end
                 istherefile = false;
-                savesurdata = true;
             end
             
-            if istherefile % || updatesurdata
-%                 disp('>> Surrogates already loaded...');
-                disp('>> Loading surrogates from file...')
+            if istherefile
+                clear surdata;
+                disp(">> Loading surrogates from file..." + filename)
                 load(surfolder + filename + ".mat", 'surdata');
             else
-                disp('>> Calculating Surrogates...');
+                disp(">> Calculating Surrogates..." + filename);
                 surdata = IAAFTsur(EEG.data(1,:, :), 1);
+                savesurdata = true;
             end
             
 %             surdata = IAAFTsur(EEG.data(1,:, :), 1);
             permH(1:npnts-windowSize-2) = PE(EEG.data(1,:, :)', delay, order, windowSize);
             surpermH(1:npnts-windowSize-2) = PE(surdata', delay, order, windowSize);
-            
             data = {surdata, permH, surpermH};
             
             [row, ~] = size(EEG.data);
@@ -53,9 +56,9 @@ classdef fntools
                 end
             end
             
-            Hdatas.surdata = surdata;
-            Hdatas.permH = permH;
-            Hdatas.surpermH = surpermH;
+%             Hdatas.surdata = surdata;
+%             Hdatas.permH = permH;
+%             Hdatas.surpermH = surpermH;
             
             if savesurdata
                 disp('>> Saving surDatas...')
@@ -109,22 +112,28 @@ classdef fntools
             end
         end
 % -------------------------------------------------------------------------
-        function savefigure(gcf, edf_file, figlabel)
+        function sbj_dt = gendatastruct(dataPath, sbj_dt, subj_list)
             
-            currpath = pwd;
-            
-            sbjName = strsplit(edf_file, "\");
-            sbjName = sbjName{5};
-            figDir = join([currpath, "fig", sbjName], "\");
-            session = strsplit(edf_file(end-5:end), '.');
-            session = session(1);
+            for indx=1:length(subj_list)
+                sujname = subj_list(indx);
+                nfbpath = dataPath + sujname + '\NFB\';
+                dir_info = dir(char(nfbpath));
+                sess_dir = {dir_info.name};
 
-            fileName = join([sbjName, session{1}, figlabel], "_");
-            fullName = join([figDir, fileName], "\");
-            figName = join([fullName "png"], ".");
-            saveas(gcf,figName);
-            
-            disp("Figure save at " +figName);
+                sbj_dt(indx).name = sujname;
+                sbj_dt(indx).nfb_path = nfbpath;
+                sbj_dt(indx).folders = sess_dir(3:end)';
+                sbj_dt(indx).dir_info = dir_info;
+
+                for sess=1:length(sbj_dt(indx).folders)
+                    folder = sbj_dt(indx).folders(sess);
+                    splt = split(folder, '-');
+                    ffilename = sbj_dt(indx).nfb_path + folder{1}+'\'+sujname+...
+                                '-'+splt(2)+'_S'+num2str(sess);
+                    sbj_dt(indx).filespath{sess} = ffilename;
+                end
+                sbj_dt(indx).filespath = sbj_dt(indx).filespath';
+            end
         end
 % -------------------------------------------------------------------------
     end
