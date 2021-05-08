@@ -1,18 +1,20 @@
 classdef fntools
     methods (Static)
 %         function [Hdatas, EEG] = pesurdata(EEG, filename, istherefile, savesurdata) %, delay, order, windowSize)
-        function [EEG] = pesurdata(EEG, filename, istherefile, savesurdata)
+        function [EEG] = pesurdata(EEG, filename, savesurpath, istherefile, savesurdata)
             
-            if nargin < 3   % if the number of inputs equals 2
+            if nargin < 4   % if the number of inputs equals 2
               istherefile = true; % then make the third value, z, equal to my default value, 5.
             end
-            if nargin < 4
+            if nargin < 5
               savesurdata = false;
             end
             
             sbjname = strsplit(filename, {'-'});
             sbjname = sbjname(1);
-            surfolder = "datas/" + sbjname + "/sur/";
+%             surfolder = "datas/" + sbjname + "/sur/";
+%             surfolder = string(savesurpath) + sbjname + "\sur\";
+            surfolder = join([savesurpath, sbjname, "sur"], "\");
             
             [~, npnts] = size(EEG.data);
             Hdatas = struct();
@@ -25,7 +27,9 @@ classdef fntools
             order = 3; % order 3 of ordinal patterns (4-points ordinal patterns)
             windowSize = floor(2*EEG.srate); %5*EEG.srate;
             
-            if ~isfile(surfolder + filename + ".mat")
+            surdatapath = join([surfolder, filename], "\");
+            disp(newline + ">> " + surdatapath  + ".mat");
+            if ~isfile(surdatapath + ".mat")
                 if ~isfolder(surfolder)
                     mkdir(char(surfolder));
                 end
@@ -35,14 +39,13 @@ classdef fntools
             if istherefile
                 clear surdata;
                 disp(">> Loading surrogates from file..." + filename)
-                load(surfolder + filename + ".mat", 'surdata');
+                load(surdatapath + ".mat", 'surdata');
             else
                 disp(">> Calculating Surrogates..." + filename);
                 surdata = IAAFTsur(EEG.data(1,:, :), 1);
-                savesurdata = true;
+%                 savesurdata = true;
             end
             
-%             surdata = IAAFTsur(EEG.data(1,:, :), 1);
             permH(1:npnts-windowSize-2) = PE(EEG.data(1,:, :)', delay, order, windowSize);
             surpermH(1:npnts-windowSize-2) = PE(surdata', delay, order, windowSize);
             data = {surdata, permH, surpermH};
@@ -59,14 +62,15 @@ classdef fntools
 %             Hdatas.surdata = surdata;
 %             Hdatas.permH = permH;
 %             Hdatas.surpermH = surpermH;
-            
+            disp(">> Saving surDatas to..." +newline+ surdatapath);
             if savesurdata
-                disp('>> Saving surDatas...')
-                save(surfolder + filename, 'surdata');
+                disp(">> Saving surDatas to..." +newline+ surdatapath);
+%                 save(surfolder + filename, 'surdata');
+                save(surdatapath, 'surdata');
             end
         end
 % -------------------------------------------------------------------------
-        function EEG = create_events(EEG, chan, latency, RWD_label, ev_duration, ev_range)
+        function EEG = create_events(EEG, chan, latency, RWD_label, ev_duration, ev_range, filename)
 
             if isempty(RWD_label)
                 RWD_label = 'RWD-250';
@@ -85,14 +89,22 @@ classdef fntools
             end
             
             % define os eventos  disp([newline 'Def events']);
-            EEG = pop_chanevent( EEG, chan, 'edge', 'leading', 'duration', 'on',...
-                                 'typename', 'RWD', 'delchan', 'off', 'edgelen', 1);
+            EEG = pop_chanevent( EEG, chan, ...
+                                 'edge', 'leading', ...
+                                 'duration', 'on',...
+                                 'typename', 'RWD', ...
+                                 'delchan', 'off', ...
+                                 'edgelen', 1);
 
             % Seleciona eventos duracao maior que 250 ms
-            EEG = pop_selectevent( EEG, 'latency',latency,'duration',ev_duration,...
-                                   'renametype',RWD_label,'oldtypefield','RWD','deleteevents','on');
+            EEG = pop_selectevent( EEG, 'latency', latency, ...
+                                   'duration', ev_duration,...
+                                   'renametype', RWD_label, ...
+                                   'oldtypefield', 'RWD', ...
+                                   'deleteevents', 'on');
             EEG = pop_epoch( EEG, { RWD_label }, ev_range, ...
-                             'newname', 'JLC-210120_S2-epochs', 'epochinfo', 'yes'); 
+                             'newname', [filename '-epochs'], ...
+                             'epochinfo', 'yes'); 
         end
 % -------------------------------------------------------------------------
         function perm_entr = pe_bytrials(EEG, chan)
@@ -120,7 +132,7 @@ classdef fntools
                 dir_info = dir(char(nfbpath));
                 sess_dir = {dir_info.name};
 
-                sbj_dt(indx).name = sujname;
+                sbj_dt(indx).names = sujname;
                 sbj_dt(indx).nfb_path = nfbpath;
                 sbj_dt(indx).folders = sess_dir(3:end)';
                 sbj_dt(indx).dir_info = dir_info;

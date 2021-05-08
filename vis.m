@@ -34,9 +34,9 @@ classdef vis
                 plot([0 0], [1 frex(end)], '--r', 'LineWidth',2);
                 xlabel('Time (ms)');
                 ylabel('Frequency (Hz)');
-                if ~isempty(figtitle{d})
-                    title(figtitle{d});
-                end
+%                 if ~isempty(figtitle{d})
+                title(figtitle{d});
+%                 end
                 caxis([mM(1,1), mM(2,2)]);
                 colorbar;
             end
@@ -99,60 +99,84 @@ function [fig] = show_evtrials(EEGev, ev_range)
             end
         end
 % -------------------------------------------------------------------------
-        function fig = show_pebaselines(EEG)
+        function fig = show_pebaselines(EEG, metrics)
             
-            EEGbs1 = pop_select( EEG,'time',[0 60] );
-            EEGbs2 = pop_select( EEG,'time',[1860 1920] );
+%             EEGbs1 = pop_select( EEG,'time',[0 60] );
+%             EEGbs2 = pop_select( EEG,'time',[1860 1920] );
+%             EEGbs1 = EEG.bs1;
+%             EEGbs2 = EEG.bs2;
+%             
+%             bs1data = { EEGbs1.data(12,:,:), EEGbs1.data(13,:,:) };
+%             bs2data = { EEGbs2.data(12,:,:), EEGbs2.data(13,:,:) };
+            NFB = 1;
+            BS1 = 2;
+            BS2 = 3;
             
-            bs1data = { EEGbs1.data(12,:,:), EEGbs1.data(13,:,:) };
-            bs2data = { EEGbs2.data(12,:,:), EEGbs2.data(13,:,:) };
-            
-            corbs1 = corrcoef(bs1data{1}, bs1data{2});
-            corbs2 = corrcoef(bs2data{1}, bs2data{2});
-            wsbs1 = ws_distance(bs1data{1}, bs1data{2});
-            wsbs2 = ws_distance(bs2data{1}, bs2data{2});
+            cornfb = metrics.corr{1,NFB};
+            corbs1 = metrics.corr{1,BS1};
+            corbs2 = metrics.corr{1,BS2};
+            wass = metrics.wass;
+%             wsbs1 = metrics.wass(BS1);
+%             wsbs2 = metrics.wass(BS2);
+%             corbs1 = corrcoef(bs1data{1}, bs1data{2});
+%             corbs2 = corrcoef(bs2data{1}, bs2data{2});
+%             wsbs1 = ws_distance(bs1data{1}, bs1data{2});
+%             wsbs2 = ws_distance(bs2data{1}, bs2data{2});
 
             fig = figure('visible','off');
             
             fig.Position = [200 200 1080 720];
 
-            subplot(1,2,1)
-            plot(EEGbs1.times./1000, EEGbs1.data(12,:,:));
+            subplot(2,2,1)
+            plot(EEG.bs1.times./1000, EEG.bs1.data(12,:,:));
             hold on;
-            plot(EEGbs1.times./1000, EEGbs1.data(13,:,:));
+            plot(EEG.bs1.times./1000, EEG.bs1.data(13,:,:));
             title(['Baseline - Pre', ...
                    'Correlation: ' + string(corbs1(1,2)), ...
-                   'WS Distance: ' + string(wsbs1)] );
+                   'WS Distance: ' + string(wass(BS1))] );
             hold off;
             xlabel('Time (s)');
             ylabel('Permutation Entropy');
             legend('Data','Surrogate');
 
-            subplot(1,2,2)
-            plot(EEGbs2.times./1000, EEGbs2.data(12,:,:));
+            subplot(2,2,2)
+            plot(EEG.bs2.times./1000, EEG.bs2.data(12,:,:));
             hold on;
-            plot(EEGbs2.times./1000, EEGbs2.data(13,:,:));
+            plot(EEG.bs2.times./1000, EEG.bs2.data(13,:,:));
             title(['Baseline - Pos', ...
                    'Correlation: ' + string(corbs2(1,2)), ...
-                   'WS Distance: ' + string(wsbs2)]);
+                   'WS Distance: ' + string(wass(BS2))]);
             hold off;
             xlabel('Time (s)');
             legend('Data','Surrogate');
             
-            suptitle('PE Baselines');
+            subplot(2,2,[3,4]);
+            plot(EEG.nfb.times./1000, EEG.nfb.data(12,:,:));
+            hold on;
+            plot(EEG.nfb.times./1000, EEG.nfb.data(13,:,:));
+            title(['NFB Task', ...
+                   'Correlation: ' + string(cornfb(1,2)), ...
+                   'WS Distance: ' + string(wass(NFB)) ]);
+            hold off;
+            
+%             suptitle('PE Baselines');
         end
 % -------------------------------------------------------------------------
         function savefigure(fig, rootpath, filename, figlabel)
             
 %             currpath = pwd;
 %             JLC-240120_S5
+            figDir = join([rootpath, "fig"], "\");
+            if ~isfolder(figDir)
+                mkdir(char(figDir));
+            end
             
             sbjName = strsplit(filename, "-");
             sbjName = sbjName{1};
-            figDir = join([rootpath, "fig", sbjName], "\");
+            sbjFigDir = join([figDir, sbjName], "\");
             
             fullfilename = filename + "_" + figlabel;
-            fullName = join([figDir, fullfilename], "\");
+            fullName = join([sbjFigDir, fullfilename], "\");
             figName = join([fullName "png"], ".");
             
             saveas(fig,figName);
