@@ -5,8 +5,7 @@ classdef vis
             data = { permute(EEG.data(chans(1),:,:), [2 3 1]), ...
                      permute(EEG.data(chans(2),:,:), [2 3 1])};
             
-            figtitle = { 'Original Data', ...
-                       'Surrogates Data'};
+            figtitle = { 'Original Data', 'Surrogates Data'};
        
             len_time= size(data{1},1);
             time = t_range(1):1/fs:t_range(2);

@@ -6,29 +6,36 @@ function [EEG] = init_process(filepath, tminmax)
 
     spltpath = strsplit(filepath, {'\'});
     setname = spltpath(8);
-
-    file = csvread(csv_file, 2, 0);
-    file = file';
-
-    rawCSV = pop_importdata( 'setname', setname, ...
-                             'data', file, ...
-                             'nbchan', 13, ...
-                             'dataformat', 'array', ...
-                             'srate', 256);
+    
     tmin = tminmax(1); %10;
     tmax = tminmax(2); %1939;
-    EEGcsv = pop_select( rawCSV, 'time',[tmin+1 tmax+1] );
 
     % -------------------------------------------------------------------------
     %Read from edf file
     EEG = pop_biosig(edf_file, 'importevent','off');
     EEG = pop_select( EEG,'time',[tmin tmax] );
+    % -------------------------------------------------------------------------
+    %Read from csv file
+    file = csvread(csv_file, 2, 0);
+%     file = file';
 
+    rawCSV = pop_importdata( 'setname', setname, ...
+                             'data', file', ...
+                             'nbchan', 13, ...
+                             'dataformat', 'array', ...
+                             'srate', EEG.srate);
+    
+    EEGcsv = pop_select( rawCSV, 'time',[tmin+1 tmax+1] );
+    % -------------------------------------------------------------------------
     % Muda as labels dos canais
     labels = {'EEG','ECG'};
     for i=1:2
         EEG.chanlocs(i).labels = labels{i};
     end
+    
+    % Normalização
+%     EEG.data(1, :) = normalize(EEG.data(1, :));
+    EEG.data(1, :) = zscore(EEG.data(1, :));
 
     % Fitragem passa-faixa.
     EEG = pop_eegfiltnew(EEG, 1,100,900,0,[],0);
@@ -45,10 +52,10 @@ function [EEG] = init_process(filepath, tminmax)
     end
     % ------------------------------------------------------------------------
     % Adiciona potencias instantaneas theta, SMR, hbeta, alpha
-    fminmax = {[4 7] [12 15] [20 30] [8 12]};
-    lenfmM = length(fminmax);
-    for f=1:length(fminmax)
-        freq = fminmax{f};
+    frange = {[4 7] [12 15] [20 30] [8 12]};
+    lenfmM = length(frange);
+    for f=1:length(frange)
+        freq = frange{f};
         EEGfilt = pop_eegfiltnew(EEG, freq(1),freq(2),900,0,[],0);
         hilb = hilbert(EEGfilt.data(1, :));
         EEG.data(end+1,:) = abs(hilb).^2;

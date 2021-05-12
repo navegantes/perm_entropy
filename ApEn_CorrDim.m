@@ -190,40 +190,43 @@ legend('Data1', 'Data2');
 title('Approximate Entropy for 50 ms slwin: : Surrogates')
 
 %% Calculating the Correlation Dimension
-% % dim= size(data_1,2);
-% clc
-% close all
-% fs= 1000;
-% slwin= 0.05*fs;
-% % corDim1= zeros(length(data_1)/slwin,1);
-% % corDim2= zeros(length(data_2)/slwin,1);
-% corDim1= zeros(length(data_1)/slwin,size(data_1,2));
-% corDim2= zeros(length(data_2)/slwin,size(data_2,2));
-% 
-% keep_msg= cell((length(data_1)/slwin)*size(data_1,2),1);
-% count= 1;
-% for i= 1:size(data_1,2)
-%     count_ind= [1 slwin];
-%     while count_ind(2) < length(data_1)
-%         for ii= 1:length(data_1)/slwin
-%             [~,lag1,dim1] = phaseSpaceReconstruction(data_1(count_ind(1):count_ind(2),i));
-%             corDim1(ii,i)= correlationDimension(data_1(count_ind(1):count_ind(2),i)',lag1,dim1,'MaxRadius',2.5,'NumPoints',200);
-%             [~,lag2,dim2] = phaseSpaceReconstruction(data_2(count_ind(1):count_ind(2),i));
-%             corDim2(ii,i)= correlationDimension(data_2(count_ind(1):count_ind(2),i)',lag2,dim2,'MaxRadius',2.5,'NumPoints',200);
-%             keep_msg{count,1} = lastwarn;
-%             count= count+1;
-%             count_ind= count_ind + slwin;
-%         end
-%     end
-% end
-% Plotting
-% figure(10)
-% plot(slwin:slwin:length(data_1),mean(corDim2,2));
-% 
-% contourf(slwin:slwin:length(data_1),1:500,corDim1',20,'linecolor','none')
-% xlabel('Time (s)');
-% ylabel('Trials');
-% colorbar
-% 
-% [XR,lag1,dim1] = phaseSpaceReconstruction(data_1(:,1));
-% teste= correlationDimension(data_1(count_ind(1):count_ind(2),i)',lag1,dim1,'MaxRadius',2.5,'NumPoints',200);
+% dim= size(data_1,2);
+clc
+close all
+fs= 1000;
+slwin= 0.05*fs;
+% corDim1= zeros(length(data_1)/slwin,1);
+% corDim2= zeros(length(data_2)/slwin,1);
+corDim1= zeros(length(data_1)/slwin,size(data_1,2));
+corDim2= zeros(length(data_2)/slwin,size(data_2,2));
+
+keep_msg= cell((length(data_1)/slwin)*size(data_1,2),1);
+count= 1;
+for i= 1:size(data_1,2)
+    count_ind= [1 slwin];
+    while count_ind(1) < length(data_1)
+        for ii= 1:length(data_1)/slwin
+            [~,lag1,dim1] = phaseSpaceReconstruction(data_1(count_ind(1):count_ind(2),i));
+            corDim1(ii,i)= correlationDimension(data_1(count_ind(1):count_ind(2),i)',lag1,dim1,'MaxRadius',2.5,'NumPoints',200);
+            [~,lag2,dim2] = phaseSpaceReconstruction(data_2(count_ind(1):count_ind(2),i));
+            corDim2(ii,i)= correlationDimension(data_2(count_ind(1):count_ind(2),i)',lag2,dim2,'MaxRadius',2.5,'NumPoints',200);
+            keep_msg{count,1} = lastwarn;
+            count= count+1;
+            count_ind= count_ind + slwin;
+        end
+        disp(string(count_ind(1)) +" "+ string(length(data_1)));
+    end
+end
+
+%%
+%Plotting
+figure(10)
+plot(slwin:slwin:length(data_1),mean(corDim2,2));
+
+contourf(slwin:slwin:length(data_1),1:500,corDim1',20,'linecolor','none')
+xlabel('Time (s)');
+ylabel('Trials');
+colorbar
+
+[XR,lag1,dim1] = phaseSpaceReconstruction(data_1(:,1));
+teste= correlationDimension(data_1(count_ind(1):count_ind(2),i)',lag1,dim1,'MaxRadius',2.5,'NumPoints',200);
