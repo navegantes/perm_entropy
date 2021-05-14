@@ -38,7 +38,7 @@ classdef fntools
             
             if loadsurdata
                 clear surdata;
-                disp(">> Loading surrogates from file..." + filename)
+                disp(">> Loading surrogates from file..." +newline+ filename);
                 load(surdatapath + ".mat", 'surdata');
             else
                 disp(">> Calculating Surrogates..." + filename);
@@ -70,7 +70,7 @@ classdef fntools
             end
         end
 % -------------------------------------------------------------------------
-        function [EEG] = create_events(EEG, chan, latency, RWD_label, ...
+        function [EEG] = create_events(EEG, rwdchan, latency, RWD_label, ...
                                        ev_duration, ev_range, ...
                                        filename, rejspecevent)
 
@@ -88,7 +88,7 @@ classdef fntools
             end
             
             % define os eventos  disp([newline 'Def events']);
-            EEG = pop_chanevent( EEG, chan, ...
+            EEG = pop_chanevent( EEG, rwdchan, ...
                                  'edge', 'leading', ...
                                  'duration', 'on',...
                                  'typename', 'RWD', ...
@@ -104,14 +104,23 @@ classdef fntools
             EEG = pop_epoch( EEG, { RWD_label }, ev_range, ...
                              'newname', [filename '-epochs'], ...
                              'epochinfo', 'yes');
+                         
+            % Rejection Trends
+            % OUTEEG = pop_rejtrend( INEEG, typerej, elec_comp, winsize, maxslope, minR, superpose, reject,calldisp);
+            disp("..." +newline+ ">> Trend rejection...")
+            winsize = floor(0.3 * EEG.srate);
+            rejmarked = 1;
+            EEG = pop_rejtrend(EEG, 1, [1], winsize, .6, .35, 1,rejmarked, 0);
+            
+            disp("..." +newline+ ">> Spec rejection...")
             if rejspecevent
                 [EEG, rejindx] = pop_rejspec( EEG, 1, ...
-                                        'elecrange', [1:1], ...
-                                        'threshold', [-30 30], ...
-                                        'freqlimits', [1 100], ...
-                                        'method', 'fft', ...
-                                        'eegplotreject', 1, ...
-                                        'eegplotplotallrej', 0);
+                                              'elecrange', [1:1], ...
+                                              'threshold', [-30 30], ...
+                                              'freqlimits', [1 100], ...
+                                              'method', 'fft', ...
+                                              'eegplotreject', 1, ...
+                                              'eegplotplotallrej', 0);
                 EEG.rejindices = rejindx;
             end
         end
@@ -166,9 +175,11 @@ classdef fntools
             numBands = length(frange);
             bandsPWR = cell(1, numBands);
             dt = permute(EEGev.data(1,:,:), [2 3 1]);
+            totpwr = bandpower(dt);
 
             for bnd=1:numBands
-                bandsPWR{bnd} = bandpower(dt, EEGev.srate, frange{bnd});
+                pBand = bandpower(dt, EEGev.srate, frange{bnd});
+                bandsPWR{bnd} = pBand./totpwr;
 %                 disp(["BAND: " + bnd]);
             end
             bandsPWR = vertcat(bandsPWR{:})';

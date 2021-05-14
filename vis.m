@@ -100,13 +100,6 @@ function [fig] = show_evtrials(EEGev, ev_range)
 % -------------------------------------------------------------------------
         function fig = show_pebaselines(EEG, metrics)
             
-%             EEGbs1 = pop_select( EEG,'time',[0 60] );
-%             EEGbs2 = pop_select( EEG,'time',[1860 1920] );
-%             EEGbs1 = EEG.bs1;
-%             EEGbs2 = EEG.bs2;
-%             
-%             bs1data = { EEGbs1.data(12,:,:), EEGbs1.data(13,:,:) };
-%             bs2data = { EEGbs2.data(12,:,:), EEGbs2.data(13,:,:) };
             NFB = 1;
             BS1 = 2;
             BS2 = 3;
@@ -115,15 +108,8 @@ function [fig] = show_evtrials(EEGev, ev_range)
             corbs1 = metrics.corr{1,BS1};
             corbs2 = metrics.corr{1,BS2};
             wass = metrics.wass;
-%             wsbs1 = metrics.wass(BS1);
-%             wsbs2 = metrics.wass(BS2);
-%             corbs1 = corrcoef(bs1data{1}, bs1data{2});
-%             corbs2 = corrcoef(bs2data{1}, bs2data{2});
-%             wsbs1 = ws_distance(bs1data{1}, bs1data{2});
-%             wsbs2 = ws_distance(bs2data{1}, bs2data{2});
 
             fig = figure('visible','off');
-            
             fig.Position = [200 200 1080 720];
 
             subplot(2,2,1)
@@ -182,6 +168,31 @@ function [fig] = show_evtrials(EEGev, ev_range)
             
             disp("Figure save at " + figName);
         end
+% -------------------------------------------------------------------------
+        function boxfig = gen_boxchart(SBJ_DT, bandlabels)
+            % BOXPLOT
+            bndPWR = SBJ_DT.bandspower;
+            lenband = length(bandlabels);
+            boxfig = cell(1,length(bandlabels));
+
+            for band=1:lenband
+                banDatas = cellfun(@(x) x(:,band), bndPWR,'UniformOutput',false);
+                bandsvec = vertcat(banDatas{:});
+
+                g = [];
+                for sess=1:5
+                    s = split(SBJ_DT.filespath{sess}, "_");
+                    g = [g; repmat(s(end),size(banDatas{sess},1),1) ];
+                end
+
+                boxfig{band} = figure('visible','off');
+                boxchart(categorical(g), bandsvec); %,'notch','on');
+                title(bandlabels{band});
+                xlabel('Sessions');
+                ylabel('Relative Band Power');
+            end
+        end
+
 % -------------------------------------------------------------------------
     end
 end

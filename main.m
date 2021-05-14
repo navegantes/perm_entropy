@@ -2,16 +2,17 @@ close all;
 clear;
 clc;
 
-rootpath = 'D:\Users\Sources\Entropy\perm_entropy';
 datapath = 'D:\Users\NFB\Pacientes\';
 savesurpath = 'D:\Users\Sources\Entropy\perm_entropy\datas';
+rootpath = 'D:\Users\Sources\Entropy\perm_entropy';
+scriptspath = 'D:\Users\Sources\Entropy\perm_entropy';
 
-chdir(rootpath);
+chdir(scriptspath);
 
 addpath('PE');
 addpath('functions');
 
-subj_list = ["JLC"]; % ["EYK", "JLC", "JRJ", "SAJ"];
+subj_list = ["JRJ"]; % ["EYK", "JLC", "JRJ", "SAJ"];
 SBJ_DT = struct();
 
 SBJ_DT = fntools.gendatastruct(datapath, SBJ_DT, subj_list );
@@ -36,15 +37,18 @@ nfb_slice = [60 1860];
 bs1_slice = [0 60];
 bs2_slice = [1860 1920];
 
-loadsurdata = true;
-savesurdata = false;
+% loadsurdata = false;
+% savesurdata = true;
+loadsurdata = false;
+savesurdata = true;
+zscore_norm = false;
 
 % % -----------------------------------------------------------------
 for suj=1:length(subj_list)
     filepath = SBJ_DT(suj).filespath;
     
     for sess=1:length(filepath)
-        EEG(sess) = init_process(filepath{sess}, t_slice);
+        EEG(sess) = init_process(filepath{sess}, t_slice, zscore_norm);
 
         % % -----------------------------------------------------------------
         % Gera surrogate e calcula entropia permutação, inclui no objeto EEG
@@ -81,7 +85,7 @@ for suj=1:length(subj_list)
                                                           RWD_label, ev_duration, ...
                                                           ev_range, ...
                                                           filename, rejspecevent); % true - rejspec
-        disp("Eventos criados. Sessao: " + string(sess));
+        disp("..." +newline+ "Eventos criados. Sessao: " + string(sess));
         
 %         bandsPWR = fntools.calc_bandpower(SBJ_DT(suj).events(sess), frange);
         SBJ_DT(suj).bandspower{sess,1} = fntools.calc_bandpower(SBJ_DT(suj).events(sess), frange);
@@ -92,27 +96,40 @@ for suj=1:length(subj_list)
     SBJ_DT(suj).metrics = metrics;
 end
 
-%% -----------------------------------------------------------------
+% % -----------------------------------------------------------------
 % -------------------------------------------------------------------------
 % VISUALIZACAO
 % -------------------------------------------------------------------------
+% Comparação PE entre baseline Pre, Pos, NFB
+% Correlação e Ws distance
+show_peBaselines(SBJ_DT, rootpath);
 
+% % -----------------------------------------------------------------
+% Mostra o espectro (confirmar resultado do feedback)
+f_range = [1 45];
+chans = [1 11];
+show_erpSpec(SBJ_DT, rootpath, chans, ev_range, f_range);
+
+% % -----------------------------------------------------------------
+% Mostra espectro potencia PSD
+show_PSDSpec(SBJ_DT, rootpath, chans, f_range);
+
+% % -----------------------------------------------------------------
+% Visualiza PE dado e surrogate por trials;
+show_evPETrials(SBJ_DT, rootpath, ev_range);
+
+disp("..." +newline+ "Visualization done...");
+
+%% -----------------------------------------------------------------
 % BOXPLOT
-bndPWR = SBJ_DT.bandspower;
-g = [];
-banDatas = cellfun(@(x) x(:,1), bndPWR,'UniformOutput',false);
-bandsvec = vertcat(banDatas{:});
-
-for sess=1:5
-    s = split(SBJ_DT.filespath{sess}, "_");
-    g = [g; repmat(sess,size(banDatas{sess},1),1) ];
-end
-boxchart(g, bandsvec); %,'notch','on');
+disp("..." +newline+ "Generating boxplot...");
+show_Bandsboxchart(SBJ_DT, rootpath);
 
 %%
 figure
+bndPWR = SBJ_DT.bandspower;
 for sess=1:5
-    plot(bndPWR{sess}(:,2));
+    plot(bndPWR{sess}(:,2), 'linewidth', 2);
     hold on;
 end
 hold off;
@@ -154,28 +171,6 @@ legend('show');
 hold off;
 
 %% -----------------------------------------------------------------
-
-% Comparação PE entre baseline Pre, Pos, NFB
-% Correlação e Ws distance
-show_peBaselines(SBJ_DT, rootpath);
-
-% % -----------------------------------------------------------------
-% Mostra o espectro (confirmar resultado do feedback)
-f_range = [1 45];
-chans = [1 11];
-show_erpSpec(SBJ_DT, rootpath, chans, ev_range, f_range);
-
-% % -----------------------------------------------------------------
-% Mostra espectro potencia PSD
-show_PSDSpec(SBJ_DT, rootpath, chans, f_range);
-
-% % -----------------------------------------------------------------
-% Visualiza PE dado e surrogate por trials;
-show_evPETrials(SBJ_DT, rootpath, ev_range);
-
-% % -----------------------------------------------------------------
-
-%% -----------------------------------------------------------------
 % LOCAL VIS FUNCTIONS
 
 function show_peBaselines(SBJ_DT, rootpath)
@@ -202,7 +197,7 @@ function show_erpSpec(SBJ_DT, rootpath, chans, ev_range, f_range)
     subj_list = [ SBJ_DT.names ];
 
     for suj=1:length(subj_list)
-        filepath = SBJ_DT(suj).filespath;
+%         filepath = SBJ_DT(suj).filespath;
         EEGev = SBJ_DT(suj).events;
 
         for sess=1:length(SBJ_DT(suj).filespath)
@@ -264,6 +259,24 @@ function show_evPETrials(SBJ_DT, rootpath, ev_range)
     end
 end
 
+function show_Bandsboxchart(SBJ_DT, rootpath)
+    
+    subj_list = [ SBJ_DT.names ];
+    bandlabels = {'Theta' 'SMR' 'Hibeta' 'Alpha'};
+    
+    for suj=1:length(subj_list)
+%         filepath = SBJ_DT(suj).filespath;
+%         splitpath = strsplit(filepath{5}, {'\', '_', '-'});
+%         filename = splitpath{end-2};  % XXX-DDMMAA_Sn
+        filename = SBJ_DT(suj).names;
+        
+        boxfig = vis.gen_boxchart(SBJ_DT(suj), bandlabels);
+        
+        for band=1:length(bandlabels)
+            vis.savefigure(boxfig{band}, rootpath, filename, "box-"+bandlabels{band});
+        end
+    end
+end
 
 % % -----------------------------------------------------------------
 % % Calcula entropia permutação por trials   % 1:dado, 11:surrogate, 12:PermH, %13:surpermH

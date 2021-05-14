@@ -1,5 +1,5 @@
 
-function [EEG] = init_process(filepath, tminmax)
+function [EEG] = init_process(filepath, tminmax, zscore_norm)
     
     csv_file = char(join([filepath, 'csv'], '.'));
     edf_file = char(join([filepath, 'edf'], '.'));
@@ -34,11 +34,15 @@ function [EEG] = init_process(filepath, tminmax)
     end
     
     % Normalização
-%     EEG.data(1, :) = normalize(EEG.data(1, :));
-    EEG.data(1, :) = zscore(EEG.data(1, :));
+    if zscore_norm
+        % EEG.data(1, :) = normalize(EEG.data(1, :));
+        EEG.data(1, :) = zscore(EEG.data(1, :));
+    end
 
     % Fitragem passa-faixa.
     EEG = pop_eegfiltnew(EEG, 1,100,900,0,[],0);
+    % Fitragem notch.
+    EEG = pop_eegfiltnew(EEG, 58,62,424,1,[],0);
 
     % ------------------------------------------------------------------------
     % Adiciona os canais (11, 2, 5, 8) RWD e Amplitudes theta SMR hibeta, do csv.
@@ -63,6 +67,6 @@ function [EEG] = init_process(filepath, tminmax)
         EEG.chanlocs(f+lenfmM+2).labels = labels{f+lenfmM};
     end
     
-    disp('Init process done...');
+    disp("..." +newline+ "Init process done...");
 end
 
