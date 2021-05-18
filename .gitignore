@@ -1,6 +1,6 @@
 fig/
 surdatas/
-/fig/**
-/surdatas/**
+fig/**
+surdatas/**
 
 **.asv
