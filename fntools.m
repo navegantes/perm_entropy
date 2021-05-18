@@ -12,8 +12,6 @@ classdef fntools
             
             sbjname = strsplit(filename, {'-'});
             sbjname = sbjname(1);
-%             surfolder = "datas/" + sbjname + "/sur/";
-%             surfolder = string(savesurpath) + sbjname + "\sur\";
             surfolder = join([savesurpath, 'surdatas', sbjname, "sur"], "\");
             
             [~, npnts] = size(EEG.data);
@@ -43,7 +41,6 @@ classdef fntools
             else
                 disp(">> Calculating Surrogates..." + filename);
                 surdata = IAAFTsur(EEG.data(1,:), 1);
-%                 savesurdata = true;
             end
             
             permH(1:npnts-windowSize-2) = PE(EEG.data(1,:)', delay, order, windowSize);
@@ -65,7 +62,6 @@ classdef fntools
 
             if savesurdata
                 disp(">> Saving surDatas to..." +newline+ surdatapath);
-%                 save(surfolder + filename, 'surdata');
                 save(surdatapath, 'surdata');
             end
         end
@@ -83,7 +79,6 @@ classdef fntools
             end
             
             if isempty(latency)
-%                 latency = '60<=1860';
                 latency = '0<=1800';
             end
             

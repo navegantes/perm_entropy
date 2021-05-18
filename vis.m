@@ -77,8 +77,6 @@ classdef vis
         end
 % -------------------------------------------------------------------------
         function EEG = show_erp_events(EEG, RWD_label)
-%             RWD_label = 'RWD-250';
-%             pop_eegplot( EEG, 1, 1, 1);
 
             smooth = 5;
             chans = [1 4 5 6 7 8 9 10 11 12 13];
@@ -149,8 +147,6 @@ classdef vis
 % -------------------------------------------------------------------------
         function savefigure(fig, rootpath, filename, figlabel)
             
-%             currpath = pwd;
-%             JLC-240120_S5
             figDir = join([rootpath, "fig"], "\");
 %             if ~isfolder(figDir)
 %                 mkdir(char(figDir));

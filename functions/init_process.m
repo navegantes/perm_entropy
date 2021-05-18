@@ -18,7 +18,6 @@ function [EEG] = init_process(filepath, tminmax, zscore_norm)
     % -------------------------------------------------------------------------
     %Read from csv file
     file = csvread(csv_file, 2, 0);
-%     file = file';
 
     rawCSV = pop_importdata( 'setname', setname, ...
                              'data', file', ...
