@@ -14,7 +14,7 @@ classdef fntools
             sbjname = sbjname(1);
 %             surfolder = "datas/" + sbjname + "/sur/";
 %             surfolder = string(savesurpath) + sbjname + "\sur\";
-            surfolder = join([savesurpath, sbjname, "sur"], "\");
+            surfolder = join([savesurpath, 'surdatas', sbjname, "sur"], "\");
             
             [~, npnts] = size(EEG.data);
 %             Hdatas = struct();
@@ -124,6 +124,28 @@ classdef fntools
                 EEG.rejindices = rejindx;
             end
         end
+% -------------------------------------------------------------------------
+function EEG = rejtrends(EEG)
+    % Rejection Trends
+    % OUTEEG = pop_rejtrend( INEEG, typerej, elec_comp, winsize, maxslope, minR, superpose, reject,calldisp);
+    disp("..." +newline+ ">> Trend rejection...")
+    winsize = floor(0.25 * EEG.srate);
+    rejmarked = 1;
+    EEG = pop_rejtrend(EEG, 1, [1], winsize, .6, .65, 1,rejmarked, 0);
+end
+
+function EEG = rejspec(EEG)
+    disp("..." +newline+ ">> Spec rejection...")
+
+    [EEG, rejindx] = pop_rejspec( EEG, 1, ...
+                                  'elecrange', [1:1], ...
+                                  'threshold', [-30 30], ...
+                                  'freqlimits', [1 100], ...
+                                  'method', 'fft', ...
+                                  'eegplotreject', 1, ...
+                                  'eegplotplotallrej', 0);
+    EEG.rejindices = rejindx;
+end
 % -------------------------------------------------------------------------
         function perm_entr = pe_bytrials(EEG, chan)
 %             addpath('PE');

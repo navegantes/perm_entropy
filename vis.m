@@ -1,11 +1,11 @@
 classdef vis
     methods (Static)
-        function [time, frex, fig] = show_erpspectrum(EEG, fs, t_range, f_range, chans)
+        function [time, frex, fig] = show_erpspectrum(EEG, fs, t_range, f_range, chans, figtitle)
             
             data = { permute(EEG.data(chans(1),:,:), [2 3 1]), ...
                      permute(EEG.data(chans(2),:,:), [2 3 1])};
             
-            figtitle = { 'Original Data', 'Surrogates Data'};
+%             figtitle = { 'Original NFB Data', 'Surrogates Data'};
        
             len_time= size(data{1},1);
             time = t_range(1):1/fs:t_range(2);
@@ -30,7 +30,7 @@ classdef vis
                 subplot(1,2,d)
                 hold on;
                 contourf(time, frex, d_spec{d}, 20, 'linecolor', 'none')
-                plot([0 0], [1 frex(end)], '--r', 'LineWidth',2);
+                plot([0 0], [1 frex(end)], '--k', 'LineWidth',2);
                 xlabel('Time (ms)');
                 ylabel('Frequency (Hz)');
 %                 if ~isempty(figtitle{d})
@@ -42,7 +42,7 @@ classdef vis
             hold off;
         end
 % -------------------------------------------------------------------------
-function [fig] = show_evtrials(EEGev, ev_range)
+        function [fig] = show_evtrials(EEGev, ev_range)
             
             Hperm = permute(EEGev.data(12,:,:), [2 3 1]);
             HpermSur = permute(EEGev.data(13,:,:), [2 3 1]);
@@ -104,47 +104,47 @@ function [fig] = show_evtrials(EEGev, ev_range)
             BS1 = 2;
             BS2 = 3;
             
-            cornfb = metrics.corr{1,NFB};
-            corbs1 = metrics.corr{1,BS1};
-            corbs2 = metrics.corr{1,BS2};
+%             cornfb = metrics.corr{1,NFB}(1,2);
+%             corbs2 = metrics.corr{1,BS2}(1,2);
+            corbs = [ metrics.corr{1,NFB}(1,2)
+                      metrics.corr{1,BS1}(1,2)
+                      metrics.corr{1,BS2}(1,2) ];
             wass = metrics.wass;
-
+% ----------------------------------------------------------------------------------
             fig = figure('visible','off');
             fig.Position = [200 200 1080 720];
 
-            subplot(2,2,1)
-            plot(EEG.bs1.times./1000, EEG.bs1.data(12,:,:));
-            hold on;
-            plot(EEG.bs1.times./1000, EEG.bs1.data(13,:,:));
-            title(['Baseline - Pre', ...
-                   'Correlation: ' + string(corbs1(1,2)), ...
-                   'WS Distance: ' + string(wass(BS1))] );
-            hold off;
+            cursbplot = subplot(2,2,1);
+            plot(EEG.bs1.times./1000, EEG.bs1.data(12,:,:), 'linewidth', 1.2); hold on;
+            plot(EEG.bs1.times./1000, EEG.bs1.data(13,:,:), 'linewidth', 1.2); hold off;
+            
+            title(['Baseline - Pre']);
             xlabel('Time (s)');
             ylabel('Permutation Entropy');
-            legend('Data','Surrogate');
-
-            subplot(2,2,2)
-            plot(EEG.bs2.times./1000, EEG.bs2.data(12,:,:));
-            hold on;
-            plot(EEG.bs2.times./1000, EEG.bs2.data(13,:,:));
-            title(['Baseline - Pos', ...
-                   'Correlation: ' + string(corbs2(1,2)), ...
-                   'WS Distance: ' + string(wass(BS2))]);
-            hold off;
+            lgnd = legend('Data','Surrogate');
+            set(lgnd.BoxFace, 'ColorType','truecoloralpha', 'ColorData',uint8(255*[1 1 1 0.5]'));
+            setannon__(cursbplot, corbs(BS1), wass(BS1));
+% ----------------------------------------------------------------------------------
+            cursbplot = subplot(2,2,2);
+            plot(EEG.bs2.times./1000, EEG.bs2.data(12,:,:), 'linewidth', 1.2); hold on;
+            plot(EEG.bs2.times./1000, EEG.bs2.data(13,:,:), 'linewidth', 1.2); hold off;
+            
+            title(['Baseline - Pos']);
             xlabel('Time (s)');
-            legend('Data','Surrogate');
+            lgnd = legend('Data','Surrogate');
+            set(lgnd.BoxFace, 'ColorType','truecoloralpha', 'ColorData',uint8(255*[1 1 1 0.5]'));
+            setannon__(cursbplot, corbs(BS2), wass(BS2));
+% ----------------------------------------------------------------------------------
+            cursbplot = subplot(2,2,[3,4]);
+            plot(EEG.nfb.times./1000, EEG.nfb.data(12,:,:), 'linewidth', 1.2); hold on;
+            plot(EEG.nfb.times./1000, EEG.nfb.data(13,:,:), 'linewidth', 1.2); hold off;
             
-            subplot(2,2,[3,4]);
-            plot(EEG.nfb.times./1000, EEG.nfb.data(12,:,:));
-            hold on;
-            plot(EEG.nfb.times./1000, EEG.nfb.data(13,:,:));
-            title(['NFB Task', ...
-                   'Correlation: ' + string(cornfb(1,2)), ...
-                   'WS Distance: ' + string(wass(NFB)) ]);
-            hold off;
-            
-%             suptitle('PE Baselines');
+            title(['NFB Task']);
+            xlabel('Time (s)');
+            ylabel('Permutation Entropy');
+            lgnd = legend('Data','Surrogate');
+            set(lgnd.BoxFace, 'ColorType','truecoloralpha', 'ColorData',uint8(255*[1 1 1 0.5]'));
+            setannon__(cursbplot, corbs(NFB), wass(NFB));
         end
 % -------------------------------------------------------------------------
         function savefigure(fig, rootpath, filename, figlabel)
@@ -152,13 +152,17 @@ function [fig] = show_evtrials(EEGev, ev_range)
 %             currpath = pwd;
 %             JLC-240120_S5
             figDir = join([rootpath, "fig"], "\");
-            if ~isfolder(figDir)
-                mkdir(char(figDir));
-            end
+%             if ~isfolder(figDir)
+%                 mkdir(char(figDir));
+%             end
             
             sbjName = strsplit(filename, "-");
             sbjName = sbjName{1};
             sbjFigDir = join([figDir, sbjName], "\");
+            
+            if ~isfolder(sbjFigDir)
+                mkdir(char(sbjFigDir));
+            end
             
             fullfilename = filename + "_" + figlabel;
             fullName = join([sbjFigDir, fullfilename], "\");
@@ -195,4 +199,19 @@ function [fig] = show_evtrials(EEGev, ev_range)
 
 % -------------------------------------------------------------------------
     end
+end
+
+function setannon__(fig, corbs, wass)
+
+%     dim = [.2 .5 .3 .3];
+    infodata = [ sprintf("Correlation: %7.4f", string(corbs)), ...
+                 sprintf("Wass Dist: %7.4f", string(wass)) ];
+    annotation('textbox', ... %dim, ...
+               'String',infodata, ...
+               'Vert','bottom', ...
+               'Horiz', 'right', ...
+               'FaceAlpha', .5, ...
+               'BackgroundColor', 'white', ...
+               'Position', fig.Position, ...
+               'FitBoxToText','on');   
 end

@@ -12,6 +12,7 @@ function [EEG] = init_process(filepath, tminmax, zscore_norm)
 
     % -------------------------------------------------------------------------
     %Read from edf file
+    disp("..." +newline+ "Reading ..." + edf_file);
     EEG = pop_biosig(edf_file, 'importevent','off');
     EEG = pop_select( EEG,'time',[tmin tmax] );
     % -------------------------------------------------------------------------
