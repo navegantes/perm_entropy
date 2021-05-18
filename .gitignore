@@ -1,4 +1,7 @@
-/fig/**
-/surdatas/**
+\fig\**
+\surdatas\**
+\old\**
+surdatas\
+old\
 
 **.asv
