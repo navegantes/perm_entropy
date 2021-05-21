@@ -1,22 +1,28 @@
 classdef vis
     methods (Static)
-        function [time, frex, fig] = show_erpspectrum(EEG, fs, t_range, f_range, chans, figtitle)
+        function [time, frex, fig] = show_erpspectrum(EEG, fs, t_range, f_range, chans, infodata)
             
             data = { permute(EEG.data(chans(1),:,:), [2 3 1]), ...
                      permute(EEG.data(chans(2),:,:), [2 3 1])};
             
+            figtitle = infodata.figtitle;
 %             figtitle = { 'Original NFB Data', 'Surrogates Data'};
-       
-            len_time= size(data{1},1);
-            time = t_range(1):1/fs:t_range(2);
-            time = time(1:len_time).*1000; % to ms
-%             time = linspace(t_range(1), t_range(2), fs);
+            
             num_frex= round(f_range(2)-f_range(1));
             frex = logspace(log10(f_range(1)), log10(f_range(2)), num_frex);
             
             d_spec = cell(1,2);
+            time2plot = cell(1,2);
+            time = t_range(1):1/fs:t_range(2);
+            t_zero = dsearchn(time', 0);
             for i=1:length(data)
-               d_spec{i} = wav_timeFreq(data{i}, fs, f_range(1), f_range(2)); 
+               [d_spec{i}, time2plot{i}] = wav_timeFreq(data{i}, fs, f_range(1), f_range(2), t_zero); 
+            end
+            
+            if infodata.taskinfo{1} ~= "nfb"
+                len_time= size(data{1},1);
+                time = time(1:len_time).*1000; % to ms
+%                 time = linspace(t_range(1), t_range(2), fs);
             end
             
             mM = minmax(minmax(cell2mat(d_spec))');
@@ -29,7 +35,13 @@ classdef vis
 %                 d_spec= wav_timeFreq(data{d}, fs, f_range(1), f_range(2));
                 subplot(1,2,d)
                 hold on;
-                contourf(time, frex, d_spec{d}, 20, 'linecolor', 'none')
+%                 contourf(time, frex, d_spec{d}, 20, 'linecolor', 'none');
+                if infodata.taskinfo{1} == "nfb"
+                    contourf(time2plot{d}, frex, d_spec{d}, 20, 'linecolor', 'none');
+                else
+                    contourf(time, frex, d_spec{d}, 20, 'linecolor', 'none');
+                end
+                
                 plot([0 0], [1 frex(end)], '--k', 'LineWidth',2);
                 xlabel('Time (ms)');
                 ylabel('Frequency (Hz)');
@@ -116,7 +128,7 @@ classdef vis
             plot(EEG.bs1.times./1000, EEG.bs1.data(12,:,:), 'linewidth', 1.2); hold on;
             plot(EEG.bs1.times./1000, EEG.bs1.data(13,:,:), 'linewidth', 1.2); hold off;
             
-            title(['Baseline - Pre']);
+            title('Baseline - Pre');
             xlabel('Time (s)');
             ylabel('Permutation Entropy');
             lgnd = legend('Data','Surrogate');
@@ -127,7 +139,7 @@ classdef vis
             plot(EEG.bs2.times./1000, EEG.bs2.data(12,:,:), 'linewidth', 1.2); hold on;
             plot(EEG.bs2.times./1000, EEG.bs2.data(13,:,:), 'linewidth', 1.2); hold off;
             
-            title(['Baseline - Pos']);
+            title('Baseline - Pos');
             xlabel('Time (s)');
             lgnd = legend('Data','Surrogate');
             set(lgnd.BoxFace, 'ColorType','truecoloralpha', 'ColorData',uint8(255*[1 1 1 0.5]'));
@@ -137,7 +149,7 @@ classdef vis
             plot(EEG.nfb.times./1000, EEG.nfb.data(12,:,:), 'linewidth', 1.2); hold on;
             plot(EEG.nfb.times./1000, EEG.nfb.data(13,:,:), 'linewidth', 1.2); hold off;
             
-            title(['NFB Task']);
+            title('NFB Task');
             xlabel('Time (s)');
             ylabel('Permutation Entropy');
             lgnd = legend('Data','Surrogate');

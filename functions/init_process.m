@@ -35,7 +35,7 @@ function [EEG] = init_process(filepath, tminmax, zscore_norm)
     
     % Normalização
     if zscore_norm
-        % EEG.data(1, :) = normalize(EEG.data(1, :));
+%         EEG.data(1, :) = normalize(EEG.data(1, :));
         EEG.data(1, :) = zscore(EEG.data(1, :));
     end
 

@@ -1,37 +1,18 @@
-function [wav_power, time2plot]= wav_timeFreq(data,fs,Min_freq,Max_freq,varargin)
+function [wav_power]= wav_timeFreq(data,fs,Min_freq,Max_freq)
+% definitions, selections...
+% chan2use = 'fcz';
 
-minArgs=4;
-maxArgs=5;
-narginchk(minArgs,maxArgs);
-
-fprintf('Received 4 required and %d optional inputs\n', length(varargin))
-
-% Building time axes
-timewin= size(data,1)/fs;
-fprintf('Total time window is %f seconds\n',timewin);
-
-
-% Setting frequency parameters
 min_freq =  Min_freq;
 max_freq = Max_freq;
+% min_freq =  1;
+% max_freq = 100;
 num_frex = round(max_freq-min_freq);
 
 pnts= size(data,1);
 trials= size(data,2);
 
 len_time= size(data,1);
-times= 1/fs:1/fs:len_time/fs; % in seconds
-
-% Setting idx sup limit
-if nargin == 4
-    idx_lim= round(size(data,1)/2);
-elseif nargin == 5
-    idx_lim= varargin{1};
-end
-
-rew_time= times(idx_lim);
-baseidx = dsearchn(times',[1/fs rew_time]');
-time2plot= (times-rew_time).*1000;
+times= 1/fs:1/fs:len_time/fs;
 
 % define wavelet parameters
 time = -1:1/fs:1;
@@ -52,6 +33,8 @@ datfft = fft(reshape(data,1,pnts*trials),n_conv_pow2);
 
 % initialize
 datpower = zeros(num_frex,pnts); % frequencies X time X trials
+
+baseidx = dsearchn(times',[1/fs 500/fs]');
 
 % loop through frequencies and compute synchronization
 for fi=1:num_frex

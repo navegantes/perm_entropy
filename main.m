@@ -4,24 +4,26 @@ clear;
 clc;
 
 datapath = 'D:\Users\NFB\Pacientes\';
-rootpath = 'E:\Datas\nfb-data';
+% rootpath = 'E:\Datas\nfb-data';
+rootpath = 'D:\Users\Sources\Entropy\perm_entropy';
 scriptspath = 'D:\Users\Sources\Entropy\perm_entropy';
 
 chdir(scriptspath);
 addpath('PE');
 addpath('functions');
 
-subj_list = ["JLC"]; % ["EYK", "JLC", "JRJ", "SAJ"];
+subj_list = ["EYK", "JLC", "JRJ"]; % ["EYK", "JLC", "JRJ", "SAJ"];
 SBJ_DT = struct();
 
 SBJ_DT = fntools.gendatastruct(datapath, SBJ_DT, subj_list );
 
 % % -----------------------------------------------------------------
+
 TASKS = struct();
 bs_data = struct();
 metrics = struct();
 
-% Parametros criaçao dos eventos
+% Parametros criaï¿½ao dos eventos
 ev_range = [-.3 .5]; % ms
 RWD_chan = 3;
 RWD_label = 'RWD-250';
@@ -36,7 +38,7 @@ bs2_slice = [1860 1920];
 loadsurdata = true;
 savesurdata = false;
 zscore_norm = false;
-savesbjdata = true;
+savesbjdata = false;
 
 % % -----------------------------------------------------------------
 
@@ -50,7 +52,7 @@ for suj=1:length(subj_list)
         EEG(sess) = init_process(filepath{sess}, t_slice, zscore_norm);
 
         % % -----------------------------------------------------------------
-        % Gera surrogate e calcula entropia permutação, inclui no objeto EEG
+        % Gera surrogate e calcula entropia permutaï¿½ï¿½o, inclui no objeto EEG
         splitpath = strsplit(filepath{sess}, {'\'});
         filename = splitpath{end};  % XXX-DDMMAA_Sn
         
@@ -72,7 +74,7 @@ for suj=1:length(subj_list)
             metrics(sess).corr(bs) = { corrcoef( bs_data(sess).bs{bs,1}, bs_data(sess).bs{bs, 2} )};
             metrics(sess).wass(bs) = ws_distance( bs_data(sess).bs{bs,1}, bs_data(sess).bs{bs, 2} );
         end
-
+        
         % Cria os eventos e extrai trials por sessao
         SBJ_DT(suj).events(sess) = fntools.create_events( TASKS(sess).nfb, ...
                                                           RWD_chan, latency, ...
@@ -96,17 +98,17 @@ end
 % -------------------------------------------------------------------------
 % VISUALIZACAO
 % -------------------------------------------------------------------------
-% Comparação PE entre baseline Pre, Pos, NFB
-% Correlação e Ws distance
+% Comparaï¿½ï¿½o PE entre baseline Pre, Pos, NFB
+% Correlaï¿½ï¿½o e Ws distance
 showPEBaselines__(SBJ_DT, rootpath);
 
-%% ------------------------------------------------------------------------
-% Comparação espectro nfb/surrogate (confirmar resultado do feedback)
+% % ------------------------------------------------------------------------
+% Comparaï¿½ï¿½o espectro nfb/surrogate (confirmar resultado do feedback)
 f_range = [1 45];
 chans = [1 11];
 show_ERPSpec__(SBJ_DT, rootpath, chans, ev_range, f_range);
 % % ------------------------------------------------------------------------
-% Comparação espectro baseline pre-pos
+% Comparaï¿½ï¿½o espectro baseline pre-pos
 bs_evrange = [0 1];
 taskinfo = ["bs1", "specbs1"];
 show_ERPSpec__(SBJ_DT, rootpath, chans, bs_evrange, f_range, taskinfo);
@@ -114,7 +116,7 @@ taskinfo = ["bs2", "specbs2"];
 show_ERPSpec__(SBJ_DT, rootpath, chans, bs_evrange, f_range, taskinfo);
 
 
-%% ------------------------------------------------------------------------
+% % ------------------------------------------------------------------------
 % Mostra espectro potencia PSD
 show_PSDSpec__(SBJ_DT, rootpath, chans, f_range);
 % % ------------------------------------------------------------------------
@@ -123,11 +125,11 @@ show_PSDSpec__(SBJ_DT, rootpath, chans, f_range, taskinfo);
 taskinfo = ["bs2", "psdbs2"];
 show_PSDSpec__(SBJ_DT, rootpath, chans, f_range, taskinfo);
 
-%% ------------------------------------------------------------------------
+% % ------------------------------------------------------------------------
 % Visualiza PE dado e surrogate por trials;
 show_evPETrials__(SBJ_DT, rootpath, ev_range);
 
-%% ------------------------------------------------------------------------
+% % ------------------------------------------------------------------------
 % Boxchart
 disp("..." +newline+ "Generating boxplot...");
 showBandsBoxchart__(SBJ_DT, rootpath);
@@ -135,7 +137,7 @@ showBandsBoxchart__(SBJ_DT, rootpath);
 disp("..." +newline+ "Visualization done...");
 
 
-%%
+%% ------------------------------------------------------------------------
 % TESTE
 figure
 bndPWR = SBJ_DT(1).bandspower;
@@ -144,13 +146,13 @@ for sess=1:5
     hold on;
 end
 hold off;
-%%
+%% ------------------------------------------------------------------------
 % figure
 suj = 1;
 for i=1:5
     data = permute(SBJ_DT(suj).events(i).data(12,:,:), [2 3 1]);
     dtmean = mean(data, 2);
-    setname = SBJ_DT(suj).events(i).setname;
+%     setname = SBJ_DT(suj).events(i).setname;
     times = SBJ_DT(suj).events(i).times;
     
     datasur = permute(SBJ_DT(suj).events(i).data(13,:,:), [2 3 1]);
@@ -167,11 +169,11 @@ title('Permutation Entropy  Data');
 legend('show');
 % hold off;
 %%
-
+% Mean Permutation Entropy
 figure
 suj = 1;
 for i=1:5
-    datasur = permute(SBJ_DT(suj).events(i).data(13,:,:), [2 3 1]);
+    datasur = permute(SBJ_DT(suj).events(i).data(12,:,:), [2 3 1]);
     dtmeansur = mean(datasur, 2);
     setname = SBJ_DT(suj).events(i).setname;
     times = SBJ_DT(suj).events(i).times;
@@ -213,22 +215,23 @@ function show_ERPSpec__(SBJ_DT, rootpath, chans, ev_range, f_range, taskinfo)
     
     endlabel = taskinfo(2);
     subj_list = [ SBJ_DT.names ];
-
+    infodata.taskinfo = taskinfo;
+    
     for suj=1:length(subj_list)
         
         EEGev = get_taskdata__( SBJ_DT(suj), ev_range, taskinfo(1) );
-        figtitle = { "Original " + upper(taskinfo(1)) + " Data", "Surrogates Data"};
-
+        infodata.figtitle = { "Original " + upper(taskinfo(1)) + " Data", "Surrogates Data"};
+        
         for sess=1:length(SBJ_DT(suj).filespath)
             splitpath = strsplit(SBJ_DT(suj).filespath{sess}, {'\'});
             filename = splitpath{end};
-
+            
             [~, ~, currfig] = vis.show_erpspectrum( EEGev(sess), ...
                                                     EEGev(sess).srate, ...
                                                     ev_range, ...
                                                     f_range, ...
                                                     chans, ...
-                                                    figtitle );
+                                                    infodata );
             
             vis.savefigure(currfig, rootpath, filename, endlabel);
             close(currfig);
