@@ -8,11 +8,12 @@ datapath = 'D:\Users\NFB\Pacientes\';
 rootpath = 'D:\Users\Sources\Entropy\perm_entropy';
 scriptspath = 'D:\Users\Sources\Entropy\perm_entropy';
 
-chdir(scriptspath);
+% chdir(scriptspath);
+chdir(rootpath);
 addpath('PE');
 addpath('functions');
 
-subj_list = ["EYK", "JLC", "JRJ"]; % ["EYK", "JLC", "JRJ", "SAJ"];
+subj_list = ["JLC", "EYK"]; % ["EYK", "JLC", "JRJ", "SAJ"];
 SBJ_DT = struct();
 
 SBJ_DT = fntools.gendatastruct(datapath, SBJ_DT, subj_list );
@@ -94,6 +95,8 @@ if savesbjdata
     save([rootpath, '\surdatas\sbjdata'], 'SBJ_DT');
 end
 
+slopesAVGPE__(SBJ_DT);
+
 %% ------------------------------------------------------------------------
 % -------------------------------------------------------------------------
 % VISUALIZACAO
@@ -102,18 +105,18 @@ end
 % Correla��o e Ws distance
 showPEBaselines__(SBJ_DT, rootpath);
 
-% % ------------------------------------------------------------------------
+%% ------------------------------------------------------------------------
 % Compara��o espectro nfb/surrogate (confirmar resultado do feedback)
 f_range = [1 45];
 chans = [1 11];
-show_ERPSpec__(SBJ_DT, rootpath, chans, ev_range, f_range);
-% % ------------------------------------------------------------------------
+time2plotnfb = show_ERPSpec__(SBJ_DT, rootpath, chans, ev_range, f_range);
+%% ------------------------------------------------------------------------
 % Compara��o espectro baseline pre-pos
 bs_evrange = [0 1];
 taskinfo = ["bs1", "specbs1"];
-show_ERPSpec__(SBJ_DT, rootpath, chans, bs_evrange, f_range, taskinfo);
+time2plotbs1 = show_ERPSpec__(SBJ_DT, rootpath, chans, bs_evrange, f_range, taskinfo);
 taskinfo = ["bs2", "specbs2"];
-show_ERPSpec__(SBJ_DT, rootpath, chans, bs_evrange, f_range, taskinfo);
+time2plotbs2 = show_ERPSpec__(SBJ_DT, rootpath, chans, bs_evrange, f_range, taskinfo);
 
 
 % % ------------------------------------------------------------------------
@@ -139,6 +142,18 @@ disp("..." +newline+ "Visualization done...");
 
 %% ------------------------------------------------------------------------
 % TESTE
+dt = SBJ_DT.events(1);
+d = reshape(dt.data(12,:,:),[],1)';
+chan = 12;
+m=mean(dt.data(12, :,:),3);
+mM = minmax(d);
+% 0.8556 .8572
+% 0.828  .832
+pop_erpimage(dt,1, chan,[[]],dt.chanlocs(chan).labels,1,1,{},[],'' , ...
+             'yerplabel','H','erp',1, 'renorm', 'no',...
+             'limits',[NaN NaN 0.8556 .8572 NaN NaN NaN NaN], ...
+             'cbar','on', 'caxis', [mM(1) 1], 'erpstd','on');
+%% ------------------------------------------------------------------------
 figure
 bndPWR = SBJ_DT(1).bandspower;
 for sess=1:5
@@ -150,8 +165,9 @@ hold off;
 % figure
 suj = 1;
 for i=1:5
-    data = permute(SBJ_DT(suj).events(i).data(12,:,:), [2 3 1]);
-    dtmean = mean(data, 2);
+%     data = permute(SBJ_DT(suj).events(i).data(12,:,:), [2 3 1]);
+    data = SBJ_DT(suj).events(i).data(12,:,:);
+    dtmean = mean(data, 3);
 %     setname = SBJ_DT(suj).events(i).setname;
     times = SBJ_DT(suj).events(i).times;
     
@@ -173,8 +189,8 @@ legend('show');
 figure
 suj = 1;
 for i=1:5
-    datasur = permute(SBJ_DT(suj).events(i).data(12,:,:), [2 3 1]);
-    dtmeansur = mean(datasur, 2);
+    datasur = SBJ_DT(suj).events(i).data(12,:,:);
+    dtmeansur = mean(datasur, 3);
     setname = SBJ_DT(suj).events(i).setname;
     times = SBJ_DT(suj).events(i).times;
     
@@ -187,6 +203,82 @@ hold off;
 
 %% ------------------------------------------------------------------------
 % LOCAL VIS FUNCTIONS
+
+show_entrSpecPerm__(SBJ_DT(1));
+%% ------------------------------------------------------------------------
+
+function show_entrSpecPerm__(SBJ_DT)
+    
+    subj_list = [ SBJ_DT.names ];
+    
+    for suj=1:length(subj_list)
+        filepath = SBJ_DT(suj).filespath;
+        EEG = SBJ_DT(suj).tasks;
+        
+        for sess=1:length(filepath)
+%             time  = EEG(sess).nfb.times;
+            splitpath = strsplit(filepath{sess}, {'\'});
+            filename = splitpath{end};
+            
+%             [te, specH, dwnPE, ccoef] = getHSpecPerm__(EEG(sess));
+            
+            [hspecpermfig] = vis.show_hspecperm(EEG(sess)); %te, specH, dwnPE, ccoef);
+            
+%             vis.savefigure(hspecpermfig, rootpath, filename, "hspecperm");
+%             close(hspecpermfig);
+            
+        end
+    end
+end
+
+function slopesAVGPE__(SBJ_DT)
+
+    % Slope das medias Permutation Entropy
+    subj_list = [ SBJ_DT.names ];
+
+    for suj=1:length(subj_list)
+        figure('Position', [282,132,960,840]);
+        
+        dtmeansur = cell(1, 5);
+        pcoefs = cell(5, 1);
+        polyn = cell(5, 1);
+
+        for i=1:length(SBJ_DT(suj).filespath)
+            datasur = SBJ_DT(suj).events(i).data(12,:,:);
+            times = SBJ_DT(suj).events(i).times;
+            
+            dtmeansur{i} = mean(datasur, 3);
+            [pcoefs{i}, polyn{i}, tmslope] = polyslope__(datasur, times);
+
+            sesslabel = SBJ_DT(suj).events(i).setname(12:13);
+            lgnd = sprintf(sesslabel +": coef: %4.2e", pcoefs{i}(1));
+            
+            plot(times, dtmeansur{i},'linewidth',2.5,'DisplayName', lgnd); %sesslabel);
+            hold on;
+        end
+        title('Slope of the Permutation Entropy Means','FontSize',14);
+        legend('show', 'Location', 'bestoutside','FontSize',11, 'AutoUpdate','off');
+        % plot slopes %
+        for i=1:5
+            X = sprintf('coef: %4.2e', pcoefs{i}(1));
+           plot(tmslope, polyn{i}, 'k--','linewidth',1.2, 'DisplayName', X);
+           hold on;
+        end
+        hold off;
+    end
+end
+
+function [pcoefs, polyn, tmslope] = polyslope__(datasur, times)
+
+    dtmeansur = mean(datasur, 3);
+
+    tzero = dsearchn(times', 0);
+    tmslope = times(tzero:end);
+    
+    pcoefs = polyfit(tmslope, dtmeansur(tzero:end), 1);
+    polyn = pcoefs(1).*tmslope + pcoefs(2);
+
+end
 
 function showPEBaselines__(SBJ_DT, rootpath)
 
@@ -207,7 +299,7 @@ function showPEBaselines__(SBJ_DT, rootpath)
     end
 end
 
-function show_ERPSpec__(SBJ_DT, rootpath, chans, ev_range, f_range, taskinfo)
+function time2plot = show_ERPSpec__(SBJ_DT, rootpath, chans, ev_range, f_range, taskinfo)
 
     if nargin < 6
         taskinfo = ["nfb", "speccom"];
@@ -226,12 +318,12 @@ function show_ERPSpec__(SBJ_DT, rootpath, chans, ev_range, f_range, taskinfo)
             splitpath = strsplit(SBJ_DT(suj).filespath{sess}, {'\'});
             filename = splitpath{end};
             
-            [~, ~, currfig] = vis.show_erpspectrum( EEGev(sess), ...
-                                                    EEGev(sess).srate, ...
-                                                    ev_range, ...
-                                                    f_range, ...
-                                                    chans, ...
-                                                    infodata );
+            [time2plot, currfig] = vis.show_erpspectrum(EEGev(sess), ...
+                                                        EEGev(sess).srate, ...
+                                                        ev_range, ...
+                                                        f_range, ...
+                                                        chans, ...
+                                                        infodata );
             
             vis.savefigure(currfig, rootpath, filename, endlabel);
             close(currfig);

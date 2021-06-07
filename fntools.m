@@ -1,5 +1,26 @@
 classdef fntools
     methods (Static)
+        function [te, specH, dwnPE, ccoef] = getHSpecPerm__(EEG) %te, specH, rhpe, ccoef)
+    
+            dt    = EEG.nfb.data( 1, :,:);
+            hpe   = EEG.nfb.data(12, :,:);
+            time  = EEG.nfb.times;
+            srate = EEG.nfb.srate;
+
+        %     [p,fp,tp] = pspectrum(dt, srate,'spectrogram');
+        %     [specH,te] = pentropy(p,fp,tp);
+            [specH,te] = pentropy(dt, srate);
+
+        %     hpesamps = size(hpe, 2); num samples
+        %     tesamps = size(te, 1);   num samples
+            downrate = floor(size(hpe, 2)/size(te, 1));
+            t_down = downsample(time, downrate);
+            dwnPE = interp1(time,hpe, t_down, 'spline');
+
+            ccoef = corrcoef(dwnPE(1:end-1), specH);
+        end
+% -------------------------------------------------------------------------
+
 %         function [Hdatas, EEG] = pesurdata(EEG, filename, istherefile, savesurdata) %, delay, order, windowSize)
         function [EEG] = pesurdata(EEG, filename, savesurpath, loadsurdata, savesurdata)
             
@@ -56,10 +77,6 @@ classdef fntools
                 end
             end
             
-%             Hdatas.surdata = surdata;
-%             Hdatas.permH = permH;
-%             Hdatas.surpermH = surpermH;
-
             if savesurdata
                 disp(">> Saving surDatas to..." +newline+ surdatapath);
                 save(surdatapath, 'surdata');

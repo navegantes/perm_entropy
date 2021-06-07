@@ -1,6 +1,29 @@
 classdef vis
     methods (Static)
-        function [time, frex, fig] = show_erpspectrum(EEG, fs, t_range, f_range, chans, infodata)
+        function fig = show_hspecperm(EEG)
+            
+            [te, specH, dwnPE, ccoef] = fntools.getHSpecPerm__(EEG);
+            
+            fig = figure; %('visible','off');
+            plot(te,specH, 'LineWidth',2 );
+            hold on;
+            plot(te,dwnPE(1:end-1), 'LineWidth',2);
+            
+            legend({'Entropia Espectral','Entropia Permutação'})
+            infodata = sprintf("Correlation: %7.4f", string(ccoef(1,2)));
+            annotation('textbox', ...
+                       'String',infodata, ...
+                       'Vert','bottom', ...
+                       'Horiz', 'right', ...
+                       'FaceAlpha', .5, ...
+                       'BackgroundColor', 'white', ...
+                       'FitBoxToText','on');
+            hold off;
+            
+        end
+        
+        function [time2plot, fig] = show_erpspectrum(EEG, fs, t_range, f_range, chans, infodata)
+%         function [time, frex, fig] = show_erpspectrum(EEG, fs, t_range, f_range, chans, infodata)
             
             data = { permute(EEG.data(chans(1),:,:), [2 3 1]), ...
                      permute(EEG.data(chans(2),:,:), [2 3 1])};
