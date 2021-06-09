@@ -1,6 +1,6 @@
 classdef fntools
     methods (Static)
-        function [te, specH, dwnPE, ccoef] = getHSpecPerm__(EEG) %te, specH, rhpe, ccoef)
+        function [te, specH, dwnPE] = getHSpecPerm__(EEG) %te, specH, rhpe, ccoef)
     
             dt    = EEG.nfb.data( 1, :,:);
             hpe   = EEG.nfb.data(12, :,:);
@@ -17,7 +17,7 @@ classdef fntools
             t_down = downsample(time, downrate);
             dwnPE = interp1(time,hpe, t_down, 'spline');
 
-            ccoef = corrcoef(dwnPE(1:end-1), specH);
+%             ccoef = corrcoef(dwnPE(1:end-1), specH);
         end
 % -------------------------------------------------------------------------
 

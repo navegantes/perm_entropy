@@ -211,7 +211,7 @@ hold off;
 show_entrSpecPerm__(SBJ_DT(1));
 %% ------------------------------------------------------------------------
 
-[trialslopes, trialpoly, tmslope] = slopesAVGPE__(SBJ_DT);
+[trialslpcoef, trialpoly] = slopesAVGPE__(SBJ_DT);
 %% ------------------------------------------------------------------------
 
 function show_entrSpecPerm__(SBJ_DT)
@@ -238,83 +238,140 @@ function show_entrSpecPerm__(SBJ_DT)
     end
 end
 
-function [trialslopes, trialpoly, tmslope] = slopesAVGPE__(SBJ_DT)
+function [trialslpcoef, trialpoly] = slopesAVGPE__(SBJ_DT)
 
     % Slope das medias Permutation Entropy
     subj_list = [ SBJ_DT.names ];
+    trange    = [0 250]; % em ms
 
     for suj=1:length(subj_list)
-        figure('Position', [282,132,960,840]);
-        
-        dtmeansur = cell(1, 5);
-        mpcoefs = cell(5, 1);
-        mpolyn = cell(5, 1);
-        trialslopes = cell(5, 1);
+        numsess      = length(SBJ_DT(suj).filespath);
+        dtmeansur    = cell(numsess, 1);
+        mpcoefs      = cell(numsess, 1);
+        mpolyn       = cell(numsess, 1);
+        trialslpcoef = cell(numsess, 1);
+        trialpoly    = cell(numsess, 1);
 
-        for sess=1:length(SBJ_DT(suj).filespath)
-            EEGev = SBJ_DT(suj).events(sess);
+        for sess=1:numsess
+            EEGev   = SBJ_DT(suj).events(sess);
             datasur = EEGev.data(12,:,:);
-            times = SBJ_DT(suj).events(sess).times;
+            times   = SBJ_DT(suj).events(sess).times;
+            [tslice, tind]  = timeslice(times, trange);
             
             dtmeansur{sess} = mean(datasur, 3);
-            [mpcoefs{sess}, mpolyn{sess}, tmslope] = polyslope__(dtmeansur{sess}, times);
+%             [mpcoefs{sess}, mpolyn{sess}, tmslope] = polyslope__(dtmeansur{sess}, times);
+            mpcoefs{sess} = polyfit(tslice, dtmeansur{sess,1}(tind(1):tind(2)), 1);
+            mpolyn{sess}  = mpcoefs{sess}(1).*tslice + mpcoefs{sess}(2);
             
-%             SBJ_DT(suj).metrics(sess).slopes = slopes(EEGev);
-            [trialslopes{sess}, trialpoly] = slopes(EEGev);
-
-            sesslabel = SBJ_DT(suj).events(sess).setname(12:13);
-            lgnd = sprintf(sesslabel +": coef: %4.2e", mpcoefs{sess}(1));
-            
-            plot(times, dtmeansur{sess},'linewidth',2.5,'DisplayName', lgnd); %sesslabel);
-            hold on;
+            [trialslpcoef{sess}, trialpoly{sess}] = slopes(EEGev, tind);
         end
-        title('Slope of the Permutation Entropy Means','FontSize',14);
-        legend('show', 'Location', 'bestoutside','FontSize',11, 'AutoUpdate','off');
-        % plot slopes %
-        for i=1:5
-            X = sprintf('coef: %4.2e', mpcoefs{i}(1));
-           plot(tmslope, mpolyn{i}, 'k-.','linewidth',1.2, 'DisplayName', X);
-           hold on;
-        end
-        
-        color = [0 0.4470 0.7410];
-        p = patch([0 250 250 0], [.927 .927 .913 .913], color, 'LineStyle', '-.'); %area([0 ; 250], [.927 .913; .927 .913]);
-        p.FaceAlpha = .1;
-        hold off;
+        slpfig = show_slopesavg(SBJ_DT(suj), mpcoefs, mpolyn, tslice);
     end
 end
 
-function [pcoefs, polyn, tmslope] = polyslope__(datasur, times)
-
-%     dtmeansur = mean(datasur, 3);
-
-    tzero = dsearchn(times', 0);
-    tevend = dsearchn(times', 250);
-    tmslope = times(tzero:tevend);
-    
-    pcoefs = polyfit(tmslope, datasur(tzero:tevend), 1);
-    polyn = pcoefs(1).*tmslope + pcoefs(2);
-
+function [tslice, tindex] = timeslice(times, trange)
+    tzero = dsearchn(times', trange(1));
+    tevend = dsearchn(times', trange(2));
+    tindex = [tzero tevend];
+    tslice = times(tzero:tevend);
 end
 
-function [pcoefs, polyn] = slopes(EEGev)
+function [pcoefs, polyn] = slopes(EEGev, trange)
     
     petrials = permute(EEGev.data(12,:,:), [2 3 1]); % (lentime, numtrials)
 %     surpetrials = permute(EEGev.data(13,:,:), [2 3 1])';
     times = EEGev.times;
-    tzero = dsearchn(times', 0);
-    tevend = dsearchn(times', 250);
+    tzero = trange(1);
+    tevend = trange(2);
     numtrials = size(petrials, 2);
     lentime = (tevend-tzero)+1;
+    tslice = times(tzero:tevend);
     
     pcoefs = zeros(numtrials, 2);
     polyn = zeros(lentime, numtrials); %cell(numtrials, 1);
     
     for trial=1:numtrials
-        [pcoefs(trial,:), polyn(:,trial), ~] = polyslope__(petrials(:,trial), times);
+%         [pcoefs(trial,:), polyn(:,trial), ~] = polyslope__(petrials(:,trial), times);
+        pcoefs(trial,:) = polyfit(tslice, petrials(tzero:tevend, trial), 1);
+        polyn(:,trial) = pcoefs(trial,1).*tslice + pcoefs(trial,2);
     end
 
 end
+
+function fig = show_slopesavg(SBJ_DT, mpcoefs, mpolyn, tmslope)
+
+%     subj_list = [ SBJ_DT.names ];
+    
+%     for suj=1:length(subj_list)
+    fig = figure('Position', [282,132,960,840]);
+    numsess = length(SBJ_DT.filespath);
+    
+     mM = [Inf -Inf];
+
+    for sess=1:numsess
+        EEGev = SBJ_DT.events(sess);
+        datasur = EEGev.data(12,:,:);
+        times = SBJ_DT.events(sess).times;
+
+%             dtmeansur{sess} = mean(datasur, 3);
+        dtmeansur = mean(datasur, 3);
+        mM = check_minmax(dtmeansur, mM);
+        
+        disp(minmax(dtmeansur));
+
+        sesslabel = SBJ_DT.events(sess).setname(12:13);
+        lgnd = sprintf(sesslabel +": coef: %6.4e", mpcoefs{sess}(1));
+
+        plot(times, dtmeansur,'linewidth',2,'DisplayName', lgnd); %sesslabel);
+        hold on;
+    end
+    title('Slope of the Permutation Entropy Means','FontSize',14);
+    legend('show', 'Location', 'bestoutside','FontSize',11, 'AutoUpdate','off');
+    % plot slopes %
+    for sess=1:numsess
+        X = sprintf('coef: %4.2e', mpcoefs{sess}(1));
+        plot(tmslope, mpolyn{sess}, 'k-.','linewidth',1.5, 'DisplayName', X);
+        hold on;
+    end
+    disp("min: " + string(mM(1)));
+    disp("max: " + string(mM(2)));
+    mins = ones(1,length(dtmeansur))*mM(1);
+    maxs = ones(1,length(dtmeansur))*mM(2);
+    plot(times, mins, 'r-.','linewidth',.8);
+    plot(times, maxs, 'b-.','linewidth',.8);
+
+    color = [0 0.4470 0.7410];
+    shift = .001;
+%     p = patch([0 250 250 0], [.927 .927 .913 .913], color, 'LineStyle', '-.'); %area([0 ; 250], [.927 .913; .927 .913]);
+    p = patch([0 250 250 0], [mM(1)-shift mM(1)-shift mM(2)+shift mM(2)+shift], color, 'LineStyle', '-.');
+    p.FaceAlpha = .08;
+    hold off;
+%     end
+end
+
+function mM = check_minmax(dtmeansur, mM)
+    
+    curmM = minmax(dtmeansur);
+    if curmM(1) < mM(1)
+        mM(1) = curmM(1);
+    end
+    if curmM(2) > mM(2)
+        mM(2) = curmM(2);
+    end
+end
+
+% function [pcoefs, polyn, tmslope] = polyslope__(datasur, times, sloperng)
+% 
+% %     dtmeansur = mean(datasur, 3);
+% 
+%     tzero = dsearchn(times', 0);
+%     tevend = dsearchn(times', 250);
+%     tmslope = times(tzero:tevend);
+%     
+%     pcoefs = polyfit(tmslope, datasur(tzero:tevend), 1);
+%     polyn = pcoefs(1).*tmslope + pcoefs(2);
+% 
+% end
 
 function showPEBaselines__(SBJ_DT, rootpath)
 

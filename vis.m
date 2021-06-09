@@ -2,7 +2,8 @@ classdef vis
     methods (Static)
         function fig = show_hspecperm(EEG)
             
-            [te, specH, dwnPE, ccoef] = fntools.getHSpecPerm__(EEG);
+            [te, specH, dwnPE] = fntools.getHSpecPerm__(EEG);
+            ccoef = corrcoef(dwnPE(1:end-1), specH);
             
             fig = figure; %('visible','off');
             plot(te,specH, 'LineWidth',2 );
