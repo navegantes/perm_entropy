@@ -13,7 +13,7 @@ chdir(rootpath);
 addpath('PE');
 addpath('functions');
 
-subj_list = ["JLC", "EYK", "JRJ"]; % ["EYK", "JLC", "JRJ", "SAJ"];
+subj_list = ["JLC"]; % ["EYK", "JLC", "JRJ", "SAJ"];
 SBJ_DT = struct();
 
 SBJ_DT = fntools.gendatastruct(datapath, SBJ_DT, subj_list );
@@ -208,37 +208,78 @@ hold off;
 %                LOCAL VIS FUNCTIONS                %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-show_EntrSpecPerm__(SBJ_DT(1));
+show_EntrSpecPerm__(SBJ_DT(1), rootpath);
 %% ------------------------------------------------------------------------
 
-[trialslpcoef, trialpoly, SBJ_DT] = show_SlopesAVG__(SBJ_DT);
+[SBJ_DT] = show_SlopesAVG__(SBJ_DT);
+showCoefsBoxchart__(SBJ_DT, rootpath);
+%% ------------------------------------------------------------------------
+% marca a posição dos eventos de feedback
+showevents(SBJ_DT);
 %% ------------------------------------------------------------------------
 
-function show_EntrSpecPerm__(SBJ_DT)
+showCoefsBoxchart__(SBJ_DT, rootpath);
+%% ------------------------------------------------------------------------
+
+function showevents(SBJ_DT)
+
+    sess = 2;
+    suj  = 1;
+    
+    dt      = SBJ_DT(suj).tasks(sess).nfb.data(12,:,:);
+    times   = SBJ_DT(suj).tasks(sess).nfb.times;
+    EEGev   = SBJ_DT(suj).events(sess);
+    urevent = EEGev.urevent;
+%     pop_eegplot(EEGev,1,1,1);
+    
+    numevents = length(urevent);
+    durations = [urevent.duration];
+    lat       = [urevent.latency];
+    
+    figure;
+    plot(times/1000, dt); hold on;
+    
+    for ev=1:numevents
+        if durations(ev)>=64
+            val = times(lat(ev))/1000;
+            plot(val, dt(lat(ev)), 'og', ...
+                'linewidth', .5, ...
+                'MarkerFaceColor', 'g', ...
+                'MarkerSize',2);
+        end
+    end
+    hold off;
+end
+
+function show_EntrSpecPerm__(SBJ_DT, rootpath)
     
     subj_list = [ SBJ_DT.names ];
     
     for suj=1:length(subj_list)
         filepath = SBJ_DT(suj).filespath;
-        EEG = SBJ_DT(suj).tasks;
+        EEG = SBJ_DT(suj); %.tasks;
         
+        offset = 0.1726;
+        boxpos = 0.8060;
+        
+        hfig = figure('Position', [282,132,800,840]);
         for sess=1:length(filepath)
 %             time  = EEG(sess).nfb.times;
             splitpath = strsplit(filepath{sess}, {'\'});
             filename = splitpath{end};
             
-%             [te, specH, dwnPE, ccoef] = getHSpecPerm__(EEG(sess));
-            
-            [hspecpermfig] = vis.show_hspecperm(EEG(sess)); %te, specH, dwnPE, ccoef);
-            
-%             vis.savefigure(hspecpermfig, rootpath, filename, "hspecperm");
-%             close(hspecpermfig);
-            
+            subplot(5,1, sess,'Parent',hfig);
+            ax = gca;
+            annonbox = [0.7552 boxpos 0.1447 0.03214];
+            vis.show_hspecperm(EEG, ax, sess, annonbox);
+            boxpos = boxpos - offset;
         end
+%         vis.savefigure(hfig, rootpath, filename(1:end-3), "specpermh");
+%         close(hfig);
     end
 end
 
-function [trialslpcoef, trialpoly, SBJ_DT] = show_SlopesAVG__(SBJ_DT)
+function [SBJ_DT] = show_SlopesAVG__(SBJ_DT)
 
     % Slope das medias Permutation Entropy
     subj_list = [ SBJ_DT.names ];
@@ -250,7 +291,9 @@ function [trialslpcoef, trialpoly, SBJ_DT] = show_SlopesAVG__(SBJ_DT)
         mpcoefs      = cell(numsess, 1);
         mpolyn       = cell(numsess, 1);
         trialslpcoef = cell(numsess, 1);
+        prwdcoefs    = cell(numsess, 1);
         trialpoly    = cell(numsess, 1);
+        prwdpolyn    = cell(numsess, 1);
 
         for sess=1:numsess
             EEGev   = SBJ_DT(suj).events(sess);
@@ -258,22 +301,25 @@ function [trialslpcoef, trialpoly, SBJ_DT] = show_SlopesAVG__(SBJ_DT)
             times   = SBJ_DT(suj).events(sess).times;
             [tslice, tind]  = timeslice(times, trange);
             
-            dtmeansur{sess} = mean(datasur, 3);
-%             [mpcoefs{sess}, mpolyn{sess}, tmslope] = polyslope__(dtmeansur{sess}, times);
+            dtmeansur{sess} = mean(datasur, 3);%             [mpcoefs{sess}, mpolyn{sess}, tmslope] = polyslope__(dtmeansur{sess}, times);
             mpcoefs{sess} = polyfit(tslice, dtmeansur{sess,1}(tind(1):tind(2)), 1);
-            mpolyn{sess}  = mpcoefs{sess}(1).*tslice + mpcoefs{sess}(2);
+            mpolyn{sess}  = polyval(mpcoefs{sess}, tslice); % + mpcoefs{sess}(2);
             
-            [trialslpcoef{sess}, trialpoly{sess}] = slopes(EEGev, tind);
+            [trialslpcoef{sess}, trialpoly{sess}, prwdcoefs{sess}, prwdpolyn{sess}] = calc_slopes(EEGev, tind);
             
-            SBJ_DT(suj).metrics(sess).slopecoefs = trialslpcoef{sess};
-            coefsmean = string(sess) + " COEFSmean:  " + string(mean(trialslpcoef{sess}(:,1)));
-            meancoef  = string(sess) + " MeanCoef :  " + string(mpcoefs{sess}(1));
-            disp(coefsmean);
-            disp(meancoef);
+            SBJ_DT(suj).metrics(sess).slopecoefs  = trialslpcoef{sess};
+            SBJ_DT(suj).metrics(sess).pslopecoefs = prwdcoefs{sess};
+            
+%             mprwdcoefs = mean(prwdcoefs{sess});
+            
+%             coefsmean = string(sess) + " COEFSmean:  " + string(mean(trialslpcoef{sess}(:,1)));
+%             meancoef  = string(sess) + " MeanCoef :  " + string(mpcoefs{sess}(1));
+%             disp(coefsmean);
+%             disp(meancoef);
         end
-        
-        slpfig = vis.show_slopesavg(SBJ_DT(suj), mpcoefs, mpolyn, tslice);
-        
+        coefs = {mpcoefs, prwdcoefs};
+        polyn = {mpolyn, prwdpolyn, tind};
+        slpfig = vis.show_slopesavg(SBJ_DT(suj), coefs, polyn, tslice);
     end
 end
 
@@ -284,7 +330,7 @@ function [tslice, tindex] = timeslice(times, trange)
     tslice = times(tzero:tevend);
 end
 
-function [pcoefs, polyn] = slopes(EEGev, trange)
+function [pcoefs, polyn, prwdcoefs, prwdpolyn] = calc_slopes(EEGev, trange)
     
     petrials  = permute(EEGev.data(12,:,:), [2 3 1]); % (lentime, numtrials)
 %     surpetrials = permute(EEGev.data(13,:,:), [2 3 1])';
@@ -295,13 +341,17 @@ function [pcoefs, polyn] = slopes(EEGev, trange)
     lentime   = (tevend-tzero)+1;
     tslice    = times(tzero:tevend);
     
-    pcoefs = zeros(numtrials, 2);
-    polyn  = zeros(lentime, numtrials); %cell(numtrials, 1);
+    pcoefs    = zeros(numtrials, 2);
+    prwdcoefs = zeros(numtrials, 2);
+    polyn     = zeros(lentime, numtrials); %cell(numtrials, 1);
+    prwdpolyn = zeros(tzero, numtrials);
     
     for trial=1:numtrials
 %         [pcoefs(trial,:), polyn(:,trial), ~] = polyslope__(petrials(:,trial), times);
-        pcoefs(trial,:) = polyfit(tslice, petrials(tzero:tevend, trial), 1);
-        polyn(:,trial)  = pcoefs(trial,1).*tslice + pcoefs(trial,2);
+        pcoefs(trial,:)    = polyfit(tslice, petrials(tzero:tevend, trial), 1);
+        polyn(:,trial)     = polyval(pcoefs(trial,:), tslice); % + pcoefs(trial,2);
+        prwdcoefs(trial,:) = polyfit(times(1:tzero), petrials(1:tzero, trial), 1);
+        prwdpolyn(:,trial) = polyval(prwdcoefs(trial,:), times(1:tzero));
     end
 
 end
@@ -450,6 +500,7 @@ function showBandsBoxchart__(SBJ_DT, rootpath)
     
     subj_list = [ SBJ_DT.names ];
     bandlabels = {'Theta' 'SMR' 'Hibeta' 'Alpha'};
+%     labels = SBJ_DT.filespath;
     
     for suj=1:length(subj_list)
         filename = SBJ_DT(suj).names;
@@ -459,6 +510,24 @@ function showBandsBoxchart__(SBJ_DT, rootpath)
         for band=1:length(bandlabels)
             vis.savefigure(boxfig{band}, rootpath, filename, "box-"+bandlabels{band});
         end
+    end
+end
+
+function showCoefsBoxchart__(SBJ_DT, rootpath)
+    
+    subj_list = [ SBJ_DT.names ];
+%     bandlabels = {'Theta' 'SMR' 'Hibeta' 'Alpha'};
+    
+    for suj=1:length(subj_list)
+%         filename = SBJ_DT(suj).names;
+        aux      = cellfun(@(x) split(x, "_"), SBJ_DT(suj).filespath,'UniformOutput',false);
+        labels   = cellfun(@(x) x{2}, aux,'UniformOutput',false);
+        
+        boxfig = vis.gen_coefsboxchart(SBJ_DT(suj), labels);
+        
+%         for band=1:length(bandlabels)
+%             vis.savefigure(boxfig{band}, rootpath, filename, "box-"+bandlabels{band});
+%         end
     end
 end
 

@@ -1,23 +1,19 @@
 classdef fntools
     methods (Static)
-        function [te, specH, dwnPE] = getHSpecPerm__(EEG) %te, specH, rhpe, ccoef)
+        function [te, se] = calcSpecH(EEG) %te, specH, rhpe, ccoef)
     
-            dt    = EEG.nfb.data( 1, :,:);
-            hpe   = EEG.nfb.data(12, :,:);
-            time  = EEG.nfb.times;
-            srate = EEG.nfb.srate;
-
-        %     [p,fp,tp] = pspectrum(dt, srate,'spectrogram');
-        %     [specH,te] = pentropy(p,fp,tp);
-            [specH,te] = pentropy(dt, srate);
-
-        %     hpesamps = size(hpe, 2); num samples
-        %     tesamps = size(te, 1);   num samples
-            downrate = floor(size(hpe, 2)/size(te, 1));
-            t_down = downsample(time, downrate);
-            dwnPE = interp1(time,hpe, t_down, 'spline');
-
-%             ccoef = corrcoef(dwnPE(1:end-1), specH);
+            dt       = EEG.nfb.data( 1,:,:);
+            times    = EEG.nfb.times;
+            srate    = EEG.nfb.srate;
+            numpnts  = EEG.nfb.pnts;
+            
+            [p,fp,tp] = pspectrum(dt, times,'spectrogram', ...
+                                  'TimeResolution', numpnts/srate, ...
+                                  'Leakage',0.85, ... %hann window
+                                  'OverlapPercent', 50, ...
+                                  'FrequencyLimits', [0 100]);
+            [se,te] = pentropy(p,fp,tp);
+            
         end
 % -------------------------------------------------------------------------
 

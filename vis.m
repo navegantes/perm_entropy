@@ -1,74 +1,110 @@
 classdef vis
 methods (Static)
-    function fig = show_hspecperm(EEG)
+    function show_hspecperm(EEGsuj, fig, sess, annonbox)
 
-        [te, specH, dwnPE] = fntools.getHSpecPerm__(EEG);
-        ccoef = corrcoef(dwnPE(1:end-1), specH);
+        EEG      = EEGsuj.tasks(sess);
+        EEGev    = EEGsuj.events(sess);
+        pe       = EEG.nfb.data(12,:,:);
+%         surpe    = EEG.nfb.data(13,:,:);
+        times    = EEG.nfb.times;
+        [te, se] = fntools.calcSpecH(EEG);
+        
+        lat = [EEGev.event.latency];
+        for ev=1:length(EEGev.event)
+            plot([times(lat(ev)) times(lat(ev))],[0 1], 'b--' );
+        end
+        
+        intspecH = interp1(te,se, times, 'spline');
+        ccoef = corrcoef(pe, intspecH);
 
-        fig = figure; %('visible','off');
-        plot(te,specH, 'LineWidth',2 );
-        hold on;
-        plot(te,dwnPE(1:end-1), 'LineWidth',2);
-
-        legend({'Entropia Espectral','Entropia Permutação'})
-        infodata = sprintf("Correlation: %7.4f", string(ccoef(1,2)));
-        annotation('textbox', ...
-                   'String',infodata, ...
-                   'Vert','bottom', ...
-                   'Horiz', 'right', ...
-                   'FaceAlpha', .5, ...
-                   'BackgroundColor', 'white', ...
-                   'FitBoxToText','on');
+        plot(times/1000, pe, 'LineWidth',1.2); hold on;
+        plot(te/1000, se, 'LineWidth',1.2);
+%         plot(times/1000, surpe, 'LineWidth',1.2);
+        ylabel("Entropy");
+        title("Session " + string(sess));
+        
+        if sess~=5
+           set(gca,'xtick',[]);
+        else
+            xlabel('Time (second)')
+        end
+        
+        if sess==1
+            % Entropia Permutação = PE
+            % Entropia Espectral  = SE
+            legend('show', {'PE','SE', 'Sur'}, ... 
+                   'Location', 'northeast', ...
+                   'FontWeight','bold', ...
+                   'FontSize', 8, ...
+                   'EdgeColor','none', ...
+                   'Color','none');
+        end
+        infodata = {sprintf("Corr: %7.4f", string(ccoef(1,2))), 0, annonbox};
+        setannon__(fig, infodata)
         hold off;
 
     end
 % -------------------------------------------------------------------------
-    function fig = show_slopesavg(SBJ_DT, mpcoefs, mpolyn, tmslope)
-
+    function fig = show_slopesavg(SBJ_DT, coefs, polyn, tmslope)
+        
+        mpcoefs     = coefs{1};
+        prwdpcoefs  = coefs{2};
+        mpolyn      = polyn{1};
+        prwdmpolyn  = polyn{2};
+        trange      = polyn{3};
     %     subj_list = [ SBJ_DT.names ];
-
     %     for suj=1:length(subj_list)
         fig = figure('Position', [282,132,960,840]);
         numsess = length(SBJ_DT.filespath);
-
         mM = [Inf -Inf];
+        
+%         
+%         colors = {[0 0.4470 0.7410], [0.8500 0.3250 0.0980], ...
+%             [0.9290 0.6940 0.1250], [0.4940 0.1840 0.5560], [0.4660 0.6740 0.1880]};
 
         for sess=1:numsess
             EEGev = SBJ_DT.events(sess);
             datasur = EEGev.data(12,:,:);
             times = SBJ_DT.events(sess).times;
-    %             dtmeansur{sess} = mean(datasur, 3);
             dtmeansur = mean(datasur, 3);
             mM = check_minmax(dtmeansur, mM);
     %         disp(minmax(dtmeansur));
             sesslabel = SBJ_DT.events(sess).setname(12:13);
-            lgnd = sprintf(sesslabel +": coef: %6.4e", mpcoefs{sess}(1));
-
-            plot(times, dtmeansur,'linewidth',2,'DisplayName', lgnd); %sesslabel);
+            mprwdpcoefs = mean(prwdpcoefs{sess}(:,1),1);
+            lgnd = sprintf("\n" + "Session " +sess+ "\ncoef bf %4.2e\ncoef af %4.2e\n", mprwdpcoefs(1), mpcoefs{sess}(1));
+            
+            plot(times, dtmeansur,'linewidth',4,'DisplayName', lgnd); %sesslabel);
             hold on;
         end
-        title('Slope of the Permutation Entropy Means','FontSize',14);
-        legend('show', 'Location', 'bestoutside','FontSize',11, 'AutoUpdate','off');
+%         title('Slope of the Permutation Entropy Means','FontSize',14);
+        legend('show', 'Location', 'bestoutside', ...
+               'FontWeight','bold', ...
+               'FontSize',11, ...
+               'AutoUpdate','off');
+        xlabel('Time (ms)', 'FontSize',16);
+        ylabel('Permutation Entropy', 'FontSize',16);
         % plot slopes %
+        X = "\bf{Slopes}";
         for sess=1:numsess
-            X = sprintf('coef: %4.2e', mpcoefs{sess}(1));
-            plot(tmslope, mpolyn{sess}, 'k-.','linewidth',1.5, 'DisplayName', X);
+            mprwdpolyn = mean(prwdmpolyn{sess}, 2)';
+%             X = [X, sprintf("S" +string(sess)+" %6.4g", mpcoefs{sess}(1))];
+            plot(tmslope, mpolyn{sess}, 'k-.','linewidth',3); %, 'DisplayName', X);
+            hold on;
+            plot(times(1:trange(1)), mprwdpolyn, '-.','linewidth',3, 'Color', [.64 .08 .18]); %, 'DisplayName', X);
             hold on;
         end
-    %     disp("min: " + string(mM(1)));
-    %     disp("max: " + string(mM(2)));
-    %     mins = ones(1,length(dtmeansur))*mM(1);
-    %     maxs = ones(1,length(dtmeansur))*mM(2);
-    %     plot(times, mins, 'r-.','linewidth',.8);
-    %     plot(times, maxs, 'b-.','linewidth',.8);
+%         infodata = {X, 0};
+%         setannon__(fig, infodata );
         color = [0 0.4470 0.7410];
         offset = .001;
-    %     p = patch([0 250 250 0], [.927 .927 .913 .913], color, 'LineStyle', '-.'); %area([0 ; 250], [.927 .913; .927 .913]);
         edges = [mM(1)-offset mM(1)-offset mM(2)+offset mM(2)+offset];
         ylim([mM(1)-offset mM(2)+offset]);
         xlim([-300 500]);
-        p = patch([0 250 250 0], edges, color, 'LineStyle', '-.');
-        p.FaceAlpha = .08;
+        p  = patch([0 250 250 0], edges, color, 'LineStyle', ':');
+%         p2 = patch([-250 0 0 -250], edges, color, 'LineStyle', '-.');
+        p.FaceAlpha  = .08;
+%         p2.FaceAlpha = .08;
+        plot([0 0], edges(2:3), 'm--','linewidth',3);
         hold off;
     %     end
     end
@@ -187,8 +223,6 @@ methods (Static)
         BS1 = 2;
         BS2 = 3;
 
-%             cornfb = metrics.corr{1,NFB}(1,2);
-%             corbs2 = metrics.corr{1,BS2}(1,2);
         corbs = [ metrics.corr{1,NFB}(1,2)
                   metrics.corr{1,BS1}(1,2)
                   metrics.corr{1,BS2}(1,2) ];
@@ -206,7 +240,9 @@ methods (Static)
         ylabel('Permutation Entropy');
         lgnd = legend('Data','Surrogate');
         set(lgnd.BoxFace, 'ColorType','truecoloralpha', 'ColorData',uint8(255*[1 1 1 0.5]'));
-        setannon__(cursbplot, corbs(BS1), wass(BS1));
+        infodata = {[ sprintf("Correlation: %7.4f", string(corbs(BS1))), ...
+                      sprintf("Wass Dist: %7.4f", string(wass(BS1))) ], 1};
+        setannon__(cursbplot, infodata); %corbs(BS1), wass(BS1));
     % ----------------------------------------------------------------------------------
         cursbplot = subplot(2,2,2);
         plot(EEG.bs2.times./1000, EEG.bs2.data(12,:,:), 'linewidth', 1.2); hold on;
@@ -216,7 +252,9 @@ methods (Static)
         xlabel('Time (s)');
         lgnd = legend('Data','Surrogate');
         set(lgnd.BoxFace, 'ColorType','truecoloralpha', 'ColorData',uint8(255*[1 1 1 0.5]'));
-        setannon__(cursbplot, corbs(BS2), wass(BS2));
+        infodata = {[ sprintf("Correlation: %7.4f", string(corbs(BS2))), ...
+                      sprintf("Wass Dist: %7.4f", string(wass(BS2))) ], 1};
+        setannon__(cursbplot, infodata); %corbs(BS2), wass(BS2));
     % ----------------------------------------------------------------------------------
         cursbplot = subplot(2,2,[3,4]);
         plot(EEG.nfb.times./1000, EEG.nfb.data(12,:,:), 'linewidth', 1.2); hold on;
@@ -227,7 +265,9 @@ methods (Static)
         ylabel('Permutation Entropy');
         lgnd = legend('Data','Surrogate');
         set(lgnd.BoxFace, 'ColorType','truecoloralpha', 'ColorData',uint8(255*[1 1 1 0.5]'));
-        setannon__(cursbplot, corbs(NFB), wass(NFB));
+        infodata = {[ sprintf("Correlation: %7.4f", string(corbs(NFB))), ...
+                      sprintf("Wass Dist: %7.4f", string(wass(NFB))) ], 1};
+        setannon__(cursbplot, infodata); %corbs(NFB), wass(NFB));
     end
 % -------------------------------------------------------------------------
     function savefigure(fig, rootpath, filename, figlabel)
@@ -259,7 +299,7 @@ methods (Static)
         bndPWR = SBJ_DT.bandspower;
         lenband = length(bandlabels);
         boxfig = cell(1,length(bandlabels));
-
+        
         for band=1:lenband
             banDatas = cellfun(@(x) x(:,band), bndPWR,'UniformOutput',false);
             bandsvec = vertcat(banDatas{:});
@@ -269,7 +309,7 @@ methods (Static)
                 s = split(SBJ_DT.filespath{sess}, "_");
                 g = [g; repmat(s(end),size(banDatas{sess},1),1) ];
             end
-
+            
             boxfig{band} = figure('visible','off');
             boxchart(categorical(g), bandsvec); %,'notch','on');
             title(bandlabels{band});
@@ -279,22 +319,88 @@ methods (Static)
     end
 
 % -------------------------------------------------------------------------
+function boxfig = gen_coefsboxchart(SBJ_DT, labels)
+        % BOXPLOT
+%         bndPWR = SBJ_DT.bandspower;
+%         lenband = length(bandlabels);
+        boxfig = cell(1,length(labels));
+        
+%         norwd_rwd = cell(1, lenslps);
+        cat = {'NoReward','Reward'};
+        slpvec = cell(1,5);
+%         Smoker = categorical(Smoker,logical([1 0]),{'NoReward','Reward'});
+        g = [];
+        coefvals = [];
+        sessions = [];
+        for sess=1:5
+            slpcoefs = { SBJ_DT(1).metrics(sess).pslopecoefs;
+                         SBJ_DT(1).metrics(sess).slopecoefs  }';
+                    
+            coefDatas = cellfun(@(x) x(:,1), slpcoefs(1,:),'UniformOutput',false);
+            slpvec = vertcat(coefDatas{:});
+            coefvals = [coefvals; slpvec];
+            
+            lenslps = length(slpcoefs);
+            sesslabel = split(SBJ_DT(1).filespath{sess}, "_");
+
+            for slp=1:lenslps
+                g = [g; repmat(cat(slp),size(coefDatas{slp},1),1) ];
+                sessions = [sessions; repmat(sesslabel(2),size(coefDatas{slp},1),1)];
+            end
+        end
+        
+        hexcolors = {'#D95319', '#0072BD'};
+        
+        boxfig = figure('Position', [230,340,960,640]); %('visible','off');
+        bc = boxchart(categorical(sessions), coefvals, ...
+                      'GroupByColor', g, ...
+                      'BoxFaceColorMode', 'manual', ...
+                      'JitterOutliers','on'); %,'notch','on');
+        
+        bc(1).BoxFaceColor = hexcolors{1};
+        bc(1).MarkerColor  = hexcolors{1};
+        bc(2).BoxFaceColor = hexcolors{2};
+        bc(2).MarkerColor  = hexcolors{2};
+%             title(labels{slp});
+        xlabel('Sessions', 'FontSize',16);
+        ylabel('Slope Coefficients', 'FontSize',16);
+        legend('show', 'Location', 'northeast', ...
+               'FontWeight','bold', ...
+               'FontSize',10);
+    end
+
+% -------------------------------------------------------------------------
 end
 end
 
-function setannon__(fig, corbs, wass)
+function setannon__(fig, infodata ) % corbs, wass)
 
 %     dim = [.2 .5 .3 .3];
-    infodata = [ sprintf("Correlation: %7.4f", string(corbs)), ...
-                 sprintf("Wass Dist: %7.4f", string(wass)) ];
-    annotation('textbox', ... %dim, ...
-               'String',infodata, ...
-               'Vert','bottom', ...
-               'Horiz', 'right', ...
-               'FaceAlpha', .5, ...
-               'BackgroundColor', 'white', ...
-               'Position', fig.Position, ...
-               'FitBoxToText','on');   
+%     infodata = [ sprintf("Correlation: %7.4f", string(corbs)), ...
+%                  sprintf("Wass Dist: %7.4f", string(wass)) ];
+
+    infotxt = infodata{1};
+    figposition = infodata{2};
+    
+    if figposition
+        annotation('textbox', 'String', infotxt, ...
+                   'Vert','bottom', ...
+                   'Horiz', 'right', ...
+                   'FaceAlpha', .5, ...
+                   'BackgroundColor', 'white', ...
+                   'Position', fig.Position, ...
+                   'FitBoxToText','on');
+    else
+        box = infodata{3};
+        annotation('textbox', box, ... %[.89, 0.3, 0.1, 0.1], ...
+                   'String', infotxt, ...
+                   'Vert','bottom', ...
+                   'Horiz', 'right', ...
+                   'FaceAlpha', .5, ...
+                   'BackgroundColor', 'white', ...
+                   'FitBoxToText','on', ...
+                   'FontSize', 10);
+    end
 end
 
 
