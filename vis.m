@@ -1,51 +1,65 @@
 classdef vis
 methods (Static)
-    function show_hspecperm(EEGsuj, fig, sess, annonbox)
+    function show_entropies(EEGsuj, fig, sess, annonbox, lang)
 
         EEG      = EEGsuj.tasks(sess);
         EEGev    = EEGsuj.events(sess);
         pe       = EEG.nfb.data(12,:,:);
-%         surpe    = EEG.nfb.data(13,:,:);
+        surpe    = EEG.nfb.data(13,:,:);
         times    = EEG.nfb.times;
-        [te, se] = fntools.calcSpecH(EEG);
+%         [te, se] = fntools.calcSpecH(EEG);
         
-        lat = [EEGev.event.latency];
-        for ev=1:length(EEGev.event)
-            plot([times(lat(ev)) times(lat(ev))],[0 1], 'b--' );
+%         lat = [EEGev.event.latency];
+%         for ev=1:length(EEGev.event)
+%             plot([times(lat(ev)) times(lat(ev))],[0 1], 'b--' ); hold on;
+%         end
+        
+        if (nargin < 5 || strcmp(lang, 'ptbr'))
+            y_label = "Entropia";
+            subtitle = "Sessão ";
+            x_label = 'Tempo (segundo)';
+            legs = {'EP','EE', 'EPSu', 'EESu'};
+        elseif strcmp(lang, 'en')
+            y_label = "Entropy";
+            subtitle = "Session ";
+            x_label = 'Time (second)';
+            legs = {'PE','SE', 'SuPE', 'SuSE'};
         end
         
-        intspecH = interp1(te,se, times, 'spline');
-        ccoef = corrcoef(pe, intspecH);
-
-        plot(times/1000, pe, 'LineWidth',1.2); hold on;
-        plot(te/1000, se, 'LineWidth',1.2);
-%         plot(times/1000, surpe, 'LineWidth',1.2);
-        ylabel("Entropy");
-        title("Session " + string(sess));
+        chanorder = [12, 14, 13, 15];
+        for i=1:4
+            chan = chanorder(i);
+            plot(times/1000, EEG.nfb.data(chan,:,:), 'LineWidth',1.2); hold on;
+            xlim([-50 2150]);
+        end
         
-        if sess~=5
-           set(gca,'xtick',[]);
-        else
-            xlabel('Time (second)')
+        ylabel(y_label);
+        title(subtitle + string(sess));
+        
+%         if sess~=5
+%            set(fig,'xtick',[]);
+%         else
+        if sess==5
+            xlabel(x_label);
         end
         
         if sess==1
-            % Entropia Permutação = PE
-            % Entropia Espectral  = SE
-            legend('show', {'PE','SE', 'Sur'}, ... 
+            legend('show', legs, ... 
                    'Location', 'northeast', ...
                    'FontWeight','bold', ...
                    'FontSize', 8, ...
                    'EdgeColor','none', ...
                    'Color','none');
         end
-        infodata = {sprintf("Corr: %7.4f", string(ccoef(1,2))), 0, annonbox};
-        setannon__(fig, infodata)
+        
+%         intspecH = interp1(te,se, times, 'spline');
+%         ccoef = corrcoef(pe, intspecH);
+%         infodata = {sprintf("r: %7.4f", string(ccoef(1,2))), 0, annonbox};
+%         setannon__(fig, infodata)
         hold off;
-
     end
 % -------------------------------------------------------------------------
-    function fig = show_slopesavg(SBJ_DT, coefs, polyn, tmslope)
+    function fig = show_slopesavg(SBJ_DT, coefs, polyn, tmslope, lang)
         
         mpcoefs     = coefs{1};
         prwdpcoefs  = coefs{2};
@@ -58,22 +72,34 @@ methods (Static)
         numsess = length(SBJ_DT.filespath);
         mM = [Inf -Inf];
         
-%         
+        if (nargin < 5 || strcmp(lang, 'ptbr'))
+            sesstitlelabel = 'Sessão ';
+            y_label = 'Entropia de Permutação';
+            x_label = 'Tempo (segundo)';
+            prepos = {'pre', 'pos'};
+        elseif strcmp(lang, 'en')
+            sesstitlelabel = 'Session ';
+            y_label = 'Permutation Entropy';
+            x_label = 'Time (ms)';
+%             legs = {'PE','SE', 'Sur'};
+            prepos = {'bf', 'af'};
+        end
 %         colors = {[0 0.4470 0.7410], [0.8500 0.3250 0.0980], ...
 %             [0.9290 0.6940 0.1250], [0.4940 0.1840 0.5560], [0.4660 0.6740 0.1880]};
-
         for sess=1:numsess
             EEGev = SBJ_DT.events(sess);
             datasur = EEGev.data(12,:,:);
             times = SBJ_DT.events(sess).times;
             dtmeansur = mean(datasur, 3);
             mM = check_minmax(dtmeansur, mM);
-    %         disp(minmax(dtmeansur));
-            sesslabel = SBJ_DT.events(sess).setname(12:13);
-            mprwdpcoefs = mean(prwdpcoefs{sess}(:,1),1);
-            lgnd = sprintf("\n" + "Session " +sess+ "\ncoef bf %4.2e\ncoef af %4.2e\n", mprwdpcoefs(1), mpcoefs{sess}(1));
             
-            plot(times, dtmeansur,'linewidth',4,'DisplayName', lgnd); %sesslabel);
+%             sesslabel = SBJ_DT.events(sess).setname(12:13);
+            mprwdpcoefs = mean(prwdpcoefs{sess}(:,1),1);
+            
+            lgnd = sprintf(['\n', sesstitlelabel, '%d'...
+                            '\nb_1 ', prepos{1}, ' %4.2e\n', '     ',  prepos{2}, ' %4.2e\n'], ...
+                            sess, mprwdpcoefs(1), mpcoefs{sess}(1));
+            plot(times, dtmeansur,'linewidth',4, 'DisplayName', lgnd); %sesslabel);
             hold on;
         end
 %         title('Slope of the Permutation Entropy Means','FontSize',14);
@@ -81,8 +107,8 @@ methods (Static)
                'FontWeight','bold', ...
                'FontSize',11, ...
                'AutoUpdate','off');
-        xlabel('Time (ms)', 'FontSize',16);
-        ylabel('Permutation Entropy', 'FontSize',16);
+        xlabel(x_label, 'FontSize',16);
+        ylabel(y_label, 'FontSize',16);
         % plot slopes %
         X = "\bf{Slopes}";
         for sess=1:numsess
@@ -109,7 +135,7 @@ methods (Static)
     %     end
     end
 % -------------------------------------------------------------------------
-    function [time2plot, fig] = show_erpspectrum(EEG, fs, t_range, f_range, chans, infodata)
+    function [time2plot, fig] = show_erpspectrum(EEG, fs, t_range, f_range, chans, infodata, lang)
 %         function [time, frex, fig] = show_erpspectrum(EEG, fs, t_range, f_range, chans, infodata)
 
         data = { permute(EEG.data(chans(1),:,:), [2 3 1]), ...
@@ -136,6 +162,14 @@ methods (Static)
         end
 
         mM = minmax(minmax(cell2mat(d_spec))');
+        
+        if (nargin < 7 || strcmp(lang, 'ptbr'))
+            y_label = 'Frequência (Hz)';
+            x_label = 'Tempo (ms)';
+        elseif strcmp(lang, 'en')
+            y_label = 'Frequency (Hz)';
+            x_label = 'Time (ms)';
+        end
 
         fig = figure('visible','off');
 %             set(fig, 'Visible', 'off');
@@ -152,8 +186,8 @@ methods (Static)
             end
 
             plot([0 0], [1 frex(end)], '--k', 'LineWidth',2);
-            xlabel('Time (ms)');
-            ylabel('Frequency (Hz)');
+            xlabel(x_label);
+            ylabel(y_label);
 %                 if ~isempty(figtitle{d})
             title(figtitle{d});
 %                 end
@@ -163,7 +197,7 @@ methods (Static)
         hold off;
     end
 % -------------------------------------------------------------------------
-    function [fig] = show_evtrials(EEGev, ev_range)
+    function [fig] = show_evtrials(EEGev, ev_range, lang)
 
         Hperm = permute(EEGev.data(12,:,:), [2 3 1]);
         HpermSur = permute(EEGev.data(13,:,:), [2 3 1]);
@@ -174,15 +208,27 @@ methods (Static)
         time = ev_range(1):1/EEGev.srate:ev_range(2);
         time = time(1:len_time)*1000;
         frex = 1:trials; %logspace(log10(1), log10(trials), trials);
+        
+        if (nargin < 3 || strcmp(lang, 'ptbr'))
+            y_label = 'Épocas';
+            x_label = 'Tempo (ms)';
+            petitle  = 'Entropia Permutação ERP';
+            sutitle = 'Entropia \it{Surrogate} ERP';
+        elseif strcmp(lang, 'en')
+            y_label = 'Trials';
+            x_label = 'Time (ms)';
+            petitle = 'Permutation Entropy ERP';
+            sutitle = 'PE Surrogate ERP';
+        end
 
         fig = figure('visible','off');
 
         fig.Position = [200 200 1080 720];
         subplot(1,2,1)
         contourf(time, frex, Hperm', 200, 'linecolor', 'none');
-        xlabel('Time (ms)');
-        ylabel('Trials');
-        title('Permutation Entropy ERP');
+        xlabel(x_label);
+        ylabel(y_label);
+        title(petitle);
         caxis([mM(1,1), mM(2,2)]);
         colorbar;
 
@@ -191,9 +237,9 @@ methods (Static)
         contourf(time, frex, HpermSur', 200, 'linecolor', 'none');
         caxis([mM(1,1), mM(2,2)]);
         colorbar;
-        xlabel('Time (ms)');
-        ylabel('Trials');
-        title('PE Surrogate ERP');
+        xlabel(x_label);
+        ylabel(y_label);
+        title(sutitle);
         % [time, frex] = fntools.show_evspec(permute(Hperm, [2 1]), EEGev.srate, ev_range, f_range, 'Reward Data');
     end
 % -------------------------------------------------------------------------
@@ -204,6 +250,9 @@ methods (Static)
         band_labels = {'EEG' 'Theta Amp' 'SMR Amp' 'Hibeta Amp' 'Theta Power'...
                        'SMR Power' 'Hibeta Power' 'Alpha Power', ...
                        'Surrgate', 'EntrPerm', 'SurrEntrPerm'};
+%         band_labels = {'EEG' 'Teta Amp' 'SMR Amp' 'Hibeta Amp' 'Teta Power'...
+%                        'SMR Power' 'Hibeta Power' 'Alfa Power', ...
+%                        'Surrgate', 'EntrPerm', 'SurrEntrPerm'};
 %             ylims = {[-1 1] [2 8] [3 5] [1 7] [4 21] [5 9] [1 10] [14 25] [-1 1] [0.8 1] [0.8 1]};
 
         for i=1:length(chans)
@@ -217,7 +266,7 @@ methods (Static)
         end
     end
 % -------------------------------------------------------------------------
-    function fig = show_pebaselines(EEG, metrics)
+    function fig = show_pebaselines(EEG, metrics, lang)
 
         NFB = 1;
         BS1 = 2;
@@ -228,6 +277,20 @@ methods (Static)
                   metrics.corr{1,BS2}(1,2) ];
         wass = metrics.wass;
     % ----------------------------------------------------------------------------------
+        if (nargin < 5 || strcmp(lang, 'ptbr'))
+            y_label = 'Entropia de Permutação';
+            x_label = 'Tempo (segundo)';
+            data = 'Dado';
+            surr = '\it{Surrogate}';
+            nfbtitle = 'Tarefa (NFB)';
+        elseif strcmp(lang, 'en')
+            y_label = 'Permutation Entropy';
+            x_label = 'Time (ms)';
+            data = 'Data';
+            surr = 'Surrogate';
+            nfbtitle = 'NFB Task';
+        end
+        
         fig = figure('visible','off');
         fig.Position = [200 200 1080 720];
 
@@ -236,12 +299,12 @@ methods (Static)
         plot(EEG.bs1.times./1000, EEG.bs1.data(13,:,:), 'linewidth', 1.2); hold off;
 
         title('Baseline - Pre');
-        xlabel('Time (s)');
-        ylabel('Permutation Entropy');
-        lgnd = legend('Data','Surrogate');
+        xlabel(x_label);
+        ylabel(y_label);
+        lgnd = legend(data, surr);
         set(lgnd.BoxFace, 'ColorType','truecoloralpha', 'ColorData',uint8(255*[1 1 1 0.5]'));
-        infodata = {[ sprintf("Correlation: %7.4f", string(corbs(BS1))), ...
-                      sprintf("Wass Dist: %7.4f", string(wass(BS1))) ], 1};
+        infodata = {[ sprintf("Corr: %7.4f", string(corbs(BS1))), ...
+                      sprintf("Wass: %7.4f", string(wass(BS1))) ], 1};
         setannon__(cursbplot, infodata); %corbs(BS1), wass(BS1));
     % ----------------------------------------------------------------------------------
         cursbplot = subplot(2,2,2);
@@ -249,24 +312,24 @@ methods (Static)
         plot(EEG.bs2.times./1000, EEG.bs2.data(13,:,:), 'linewidth', 1.2); hold off;
 
         title('Baseline - Pos');
-        xlabel('Time (s)');
-        lgnd = legend('Data','Surrogate');
+        xlabel(x_label);
+        lgnd = legend(data, surr);
         set(lgnd.BoxFace, 'ColorType','truecoloralpha', 'ColorData',uint8(255*[1 1 1 0.5]'));
-        infodata = {[ sprintf("Correlation: %7.4f", string(corbs(BS2))), ...
-                      sprintf("Wass Dist: %7.4f", string(wass(BS2))) ], 1};
+        infodata = {[ sprintf("Corr: %7.4f", string(corbs(BS2))), ...
+                      sprintf("Wass: %7.4f", string(wass(BS2))) ], 1};
         setannon__(cursbplot, infodata); %corbs(BS2), wass(BS2));
     % ----------------------------------------------------------------------------------
         cursbplot = subplot(2,2,[3,4]);
         plot(EEG.nfb.times./1000, EEG.nfb.data(12,:,:), 'linewidth', 1.2); hold on;
         plot(EEG.nfb.times./1000, EEG.nfb.data(13,:,:), 'linewidth', 1.2); hold off;
 
-        title('NFB Task');
-        xlabel('Time (s)');
-        ylabel('Permutation Entropy');
-        lgnd = legend('Data','Surrogate');
+        title(nfbtitle);
+        xlabel(x_label);
+        ylabel(y_label);
+        lgnd = legend(data, surr);
         set(lgnd.BoxFace, 'ColorType','truecoloralpha', 'ColorData',uint8(255*[1 1 1 0.5]'));
-        infodata = {[ sprintf("Correlation: %7.4f", string(corbs(NFB))), ...
-                      sprintf("Wass Dist: %7.4f", string(wass(NFB))) ], 1};
+        infodata = {[ sprintf("Corr: %7.4f", string(corbs(NFB))), ...
+                      sprintf("Wass: %7.4f", string(wass(NFB))) ], 1};
         setannon__(cursbplot, infodata); %corbs(NFB), wass(NFB));
     end
 % -------------------------------------------------------------------------
@@ -294,11 +357,19 @@ methods (Static)
         disp("Figure save at " + figName);
     end
 % -------------------------------------------------------------------------
-    function boxfig = gen_boxchart(SBJ_DT, bandlabels)
+    function boxfig = gen_boxchart(SBJ_DT, bandlabels, lang)
         % BOXPLOT
         bndPWR = SBJ_DT.bandspower;
         lenband = length(bandlabels);
         boxfig = cell(1,length(bandlabels));
+        
+        if (nargin < 3 || strcmp(lang, 'ptbr'))
+            y_label = 'Potência Relativa';
+            x_label = 'Sessões';
+        elseif strcmp(lang, 'en')
+            y_label = 'Relative Band Power';
+            x_label = 'Sessions';
+        end
         
         for band=1:lenband
             banDatas = cellfun(@(x) x(:,band), bndPWR,'UniformOutput',false);
@@ -313,22 +384,29 @@ methods (Static)
             boxfig{band} = figure('visible','off');
             boxchart(categorical(g), bandsvec); %,'notch','on');
             title(bandlabels{band});
-            xlabel('Sessions');
-            ylabel('Relative Band Power');
+            xlabel(x_label);
+            ylabel(y_label);
         end
     end
 
 % -------------------------------------------------------------------------
-function boxfig = gen_coefsboxchart(SBJ_DT, labels)
+function boxfig = gen_coefsboxchart(SBJ_DT, lang)
         % BOXPLOT
 %         bndPWR = SBJ_DT.bandspower;
 %         lenband = length(bandlabels);
-        boxfig = cell(1,length(labels));
+%         boxfig = cell(1,length(labels));
+
+        if (nargin < 2 || strcmp(lang, 'ptbr'))
+            y_label = 'Coeficiente Angular';
+            x_label = 'Sessões';
+            cat = {'Sem Reforço','Reforço'};
+        elseif strcmp(lang, 'en')
+            y_label = 'Slope Coefficients';
+            x_label = 'Sessions';
+            cat = {'Non-Reward','Reward'};
+        end
         
-%         norwd_rwd = cell(1, lenslps);
-        cat = {'NoReward','Reward'};
         slpvec = cell(1,5);
-%         Smoker = categorical(Smoker,logical([1 0]),{'NoReward','Reward'});
         g = [];
         coefvals = [];
         sessions = [];
@@ -355,15 +433,18 @@ function boxfig = gen_coefsboxchart(SBJ_DT, labels)
         bc = boxchart(categorical(sessions), coefvals, ...
                       'GroupByColor', g, ...
                       'BoxFaceColorMode', 'manual', ...
+                      'MarkerColorMode',  'manual', ...
                       'JitterOutliers','on'); %,'notch','on');
         
         bc(1).BoxFaceColor = hexcolors{1};
         bc(1).MarkerColor  = hexcolors{1};
+%         bc(1).SeriesIndex  = 1;
         bc(2).BoxFaceColor = hexcolors{2};
         bc(2).MarkerColor  = hexcolors{2};
+%         bc(2).SeriesIndex  = 2;
 %             title(labels{slp});
-        xlabel('Sessions', 'FontSize',16);
-        ylabel('Slope Coefficients', 'FontSize',16);
+        xlabel(x_label, 'FontSize',16);
+        ylabel(y_label, 'FontSize',16);
         legend('show', 'Location', 'northeast', ...
                'FontWeight','bold', ...
                'FontSize',10);

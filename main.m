@@ -41,6 +41,8 @@ savesurdata = false;
 zscore_norm = false;
 savesbjdata = false;
 
+lang = 'ptbr'; %en';
+
 % % -----------------------------------------------------------------
 
 t_slice = [10 1939];
@@ -76,8 +78,6 @@ for suj=1:length(subj_list)
             metrics(sess).wass(bs) = ws_distance( bs_data(sess).bs{bs,1}, bs_data(sess).bs{bs, 2} );
         end
         
-%         metrics(sess).slopes = 
-        
         % Cria os eventos e extrai trials por sessao
         SBJ_DT(suj).events(sess) = fntools.create_events( TASKS(sess).nfb, ...
                                                           RWD_chan, latency, ...
@@ -86,62 +86,87 @@ for suj=1:length(subj_list)
                                                           filename, rejspecevent); % true - rejspec
         disp("..." +newline+ ...
              "Eventos criados. Sessao: " + string(sess));
-        SBJ_DT(suj).bandspower{sess,1} = fntools.calc_bandpower(SBJ_DT(suj).events(sess), frange);
+%         SBJ_DT(suj).bandspower{sess,1} = fntools.calc_bandpower(SBJ_DT(suj).events(sess), frange);
     end
 
     SBJ_DT(suj).tasks = TASKS;
     SBJ_DT(suj).metrics = metrics;
 end
 
-if savesbjdata
-    save([rootpath, '\surdatas\sbjdata'], 'SBJ_DT');
-end
-
 %% ------------------------------------------------------------------------
 % -------------------------------------------------------------------------
 % VISUALIZACAO
 % -------------------------------------------------------------------------
-% Compara��o PE entre baseline Pre, Pos, NFB
-% Correla��o e Ws distance
-showPEBaselines__(SBJ_DT, rootpath);
-
 %% ------------------------------------------------------------------------
-% Compara��o espectro nfb/surrogate (confirmar resultado do feedback)
+% Comparação espectro nfb/surrogate (confirmar resultado do feedback)
 f_range = [1 45];
 chans = [1 11];
-time2plotnfb = show_ERPSpec__(SBJ_DT, rootpath, chans, ev_range, f_range);
+taskinfo = ["nfb", "speccom"];
+
+time2plotnfb = show_ERPSpec__(SBJ_DT, rootpath, chans, ev_range, f_range, taskinfo, lang);
+
 %% ------------------------------------------------------------------------
-% Compara��o espectro baseline pre-pos
-bs_evrange = [0 1];
-taskinfo = ["bs1", "specbs1"];
-time2plotbs1 = show_ERPSpec__(SBJ_DT, rootpath, chans, bs_evrange, f_range, taskinfo);
-taskinfo = ["bs2", "specbs2"];
-time2plotbs2 = show_ERPSpec__(SBJ_DT, rootpath, chans, bs_evrange, f_range, taskinfo);
-
-
-% % ------------------------------------------------------------------------
-% Mostra espectro potencia PSD
-show_PSDSpec__(SBJ_DT, rootpath, chans, f_range);
-% % ------------------------------------------------------------------------
-taskinfo = ["bs1", "psdbs1"];
-show_PSDSpec__(SBJ_DT, rootpath, chans, f_range, taskinfo);
-taskinfo = ["bs2", "psdbs2"];
-show_PSDSpec__(SBJ_DT, rootpath, chans, f_range, taskinfo);
-
-% % ------------------------------------------------------------------------
 % Visualiza PE dado e surrogate por trials;
-show_evPETrials__(SBJ_DT, rootpath, ev_range);
+show_evPETrials__(SBJ_DT, rootpath, ev_range, lang);
+%% ------------------------------------------------------------------------
+
+
+
+show_Entropies__(SBJ_DT, rootpath, lang);
+%% ------------------------------------------------------------------------
+
+
+[SBJ_DT] = show_SlopesAVG__(SBJ_DT, rootpath, lang);
+% % ------------------------------------------------------------------------
+
+showCoefsBoxchart__(SBJ_DT, rootpath, lang);
+% % ------------------------------------------------------------------------
+
+if savesbjdata
+    num = char(string(length(SBJ_DT)));
+    save([rootpath, '\surdatas\sbjdata_', num], 'SBJ_DT');
+end
+%% ------------------------------------------------------------------------
+
+
+
+% Comparação PE entre baseline Pre, Pos, NFB
+% Correlação e Ws distance
+% showPEBaselines__(SBJ_DT, rootpath, lang);
+% % ------------------------------------------------------------------------
+% % Comparação espectro baseline pre-pos
+% bs_evrange = [0 1];
+% taskinfo = ["bs1", "specbs1"];
+% time2plotbs1 = show_ERPSpec__(SBJ_DT, rootpath, chans, bs_evrange, f_range, taskinfo, lang);
+% taskinfo = ["bs2", "specbs2"];
+% time2plotbs2 = show_ERPSpec__(SBJ_DT, rootpath, chans, bs_evrange, f_range, taskinfo, lang);
 
 % % ------------------------------------------------------------------------
-% Boxchart
-disp("..." +newline+ "Generating boxplot...");
-showBandsBoxchart__(SBJ_DT, rootpath);
+% % Mostra espectro potencia PSD
+% show_PSDSpec__(SBJ_DT, rootpath, chans, f_range, lang);
+% % % ------------------------------------------------------------------------
+% taskinfo = ["bs1", "psdbs1"];
+% show_PSDSpec__(SBJ_DT, rootpath, chans, f_range, taskinfo, lang);
+% taskinfo = ["bs2", "psdbs2"];
+% show_PSDSpec__(SBJ_DT, rootpath, chans, f_range, taskinfo, lang);
 
-disp("..." +newline+ "Visualization done...");
+% % ------------------------------------------------------------------------
+% % Boxchart potencias bandas
+% disp("..." +newline+ "Generating boxplot...");
+% showBandsBoxchart__(SBJ_DT, rootpath, lang);
+% 
+% disp("..." +newline+ "Visualization done...");
+
+%% ------------------------------------------------------------------------
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %                TESTES                %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% ------------------------------------------------------------------------
+
+% marca a posição dos eventos de feedback
+showevents(SBJ_DT);
 %% ------------------------------------------------------------------------
 
 dt = SBJ_DT.events(1);
@@ -203,23 +228,13 @@ title('Mean Permutation Entropy');
 legend('show');
 hold off;
 
-%% ------------------------------------------------------------------------
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %                LOCAL VIS FUNCTIONS                %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-show_EntrSpecPerm__(SBJ_DT(1), rootpath);
-%% ------------------------------------------------------------------------
-
-[SBJ_DT] = show_SlopesAVG__(SBJ_DT);
-showCoefsBoxchart__(SBJ_DT, rootpath);
-%% ------------------------------------------------------------------------
-% marca a posição dos eventos de feedback
-showevents(SBJ_DT);
-%% ------------------------------------------------------------------------
-
-showCoefsBoxchart__(SBJ_DT, rootpath);
-%% ------------------------------------------------------------------------
+%%
+[statsdata, soma] = show_statsTrials__(SBJ_DT, rootpath);
+%%
 
 function showevents(SBJ_DT)
 
@@ -251,7 +266,13 @@ function showevents(SBJ_DT)
     hold off;
 end
 
-function show_EntrSpecPerm__(SBJ_DT, rootpath)
+function show_Entropies__(SBJ_DT, rootpath, lang)
+    
+    if (nargin < 3 || strcmp(lang, 'ptbr'))
+        lang = 'ptbr'; %'en';
+    else
+        lang = 'en';
+    end
     
     subj_list = [ SBJ_DT.names ];
     
@@ -264,28 +285,125 @@ function show_EntrSpecPerm__(SBJ_DT, rootpath)
         
         hfig = figure('Position', [282,132,800,840]);
         for sess=1:length(filepath)
-%             time  = EEG(sess).nfb.times;
             splitpath = strsplit(filepath{sess}, {'\'});
             filename = splitpath{end};
             
             subplot(5,1, sess,'Parent',hfig);
             ax = gca;
             annonbox = [0.7552 boxpos 0.1447 0.03214];
-            vis.show_hspecperm(EEG, ax, sess, annonbox);
+            vis.show_entropies(EEG, ax, sess, annonbox, lang);
             boxpos = boxpos - offset;
         end
-%         vis.savefigure(hfig, rootpath, filename(1:end-3), "specpermh");
+        vis.savefigure(hfig, rootpath, filename(1:end-3), "specpermh");
 %         close(hfig);
     end
 end
 
-function [SBJ_DT] = show_SlopesAVG__(SBJ_DT)
+function [statsdata, soma] = show_statsTrials__(SBJ_DT, rootpath) %, ev_range, lang)
 
+    subj_list = [ SBJ_DT.names ];
+    trange    = [0 250];
+    
+    for suj=1:length(subj_list)
+        filepath = SBJ_DT(suj).filespath;
+        EEGev    = SBJ_DT(suj).events;
+        stats = cell(1,2);
+        soma = zeros(5,4);
+        
+        for sess=1:length(filepath)
+            splitpath = strsplit(filepath{sess}, {'\'});
+            filename  = splitpath{end};
+            
+            tindx = get_evtimeindxs(EEGev(sess).times, trange);
+            
+            numtrials = EEGev(sess).trials;
+            pe        = permute(EEGev(sess).data(12,:,:), [2 3 1]);
+            pesu      = permute(EEGev(sess).data(13,:,:), [2 3 1]);
+            se        = permute(EEGev(sess).data(14,:,:), [2 3 1]);
+            sesu      = permute(EEGev(sess).data(15,:,:), [2 3 1]);
+            entrData  = {pe, pesu, se, sesu};
+            
+            numdata = length(entrData);
+            pval = {zeros(numtrials, numdata), zeros(numtrials, numdata)};
+            hval = {zeros(numtrials, numdata), zeros(numtrials, numdata)};
+            Sval = {cell(numtrials, numdata), cell(numtrials, numdata)};
+            
+            for dt=1:numdata
+                [rp, rh, rS] = calc_stats(entrData{dt}, numtrials, tindx, 'runksum');
+                [tp, th, tS] = calc_stats(entrData{dt}, numtrials, tindx, 'ttest');
+                pval{1}(:,dt) = rp;
+                hval{1}(:,dt) = rh;
+                pval{2}(:,dt) = tp;
+                hval{2}(:,dt) = th;
+                for t=1:numtrials
+                    Sval{1}{t,dt} =  rS{t};
+                    Sval{2}{t,dt} =  tS{t};
+                end
+            end
+            
+            stats{1}(sess).p = pval{1};
+            stats{1}(sess).h = hval{1};
+            stats{1}(sess).S = Sval{1};
+            stats{2}(sess).p = pval{2};
+            stats{2}(sess).h = hval{2};
+            stats{2}(sess).S = Sval{2};
+            
+            soma(sess, :) = sum(hval{1});
+            disp(sum(hval{1}))
+            
+%             pefig = vis.show_evtrials(EEGev(sess), ev_range, lang);
+%             vis.savefigure(pefig, rootpath, filename, "htrials");
+%             close(pefig);
+        end
+        statsdata(suj).runksum = stats{1};
+        statsdata(suj).ttest   = stats{2};
+    end
+end
+
+function tindex = get_evtimeindxs(times, trange)
+    t_zero  = dsearchn(times', trange(1));
+    t_evend = dsearchn(times', trange(2));
+    t_evdne = dsearchn(times', -1*trange(2));
+    tindex = [t_evdne t_zero t_evend];
+end
+
+function [p, h, S] = calc_stats(evdata, numtrials, tindx, test)
+    
+    p = zeros(numtrials, 1);
+    h = zeros(numtrials, 1);
+    S = cell(numtrials, 1);
+    
+    dnevet = tindx(1); % samp: -250
+    tzero  = tindx(2); % samp: 0
+    tevend = tindx(3); % samp: 250
+    
+    for trial=1:numtrials
+        x = evdata(dnevet:tzero-1,trial);
+        y = evdata(tzero+1:tevend,trial);
+        if strcmp(test, 'ranksum')
+            [p(trial), h(trial), S{trial}] = ranksum(x, y);
+        end
+        if strcmp(test, 'ttest')
+            [h(trial), p(trial), ~, S{trial}] = ttest(x, y);
+        end
+    end
+end
+
+function [SBJ_DT] = show_SlopesAVG__(SBJ_DT, rootpath, lang)
+
+    if (nargin < 3 || strcmp(lang, 'ptbr'))
+        lang = 'ptbr'; %'en';
+    else
+        lang = 'en';
+    end
+    
     % Slope das medias Permutation Entropy
     subj_list = [ SBJ_DT.names ];
     trange    = [0 250]; % em ms
 
     for suj=1:length(subj_list)
+        filepath = SBJ_DT(suj).filespath;
+        
         numsess      = length(SBJ_DT(suj).filespath);
         dtmeansur    = cell(numsess, 1);
         mpcoefs      = cell(numsess, 1);
@@ -320,6 +438,11 @@ function [SBJ_DT] = show_SlopesAVG__(SBJ_DT)
         coefs = {mpcoefs, prwdcoefs};
         polyn = {mpolyn, prwdpolyn, tind};
         slpfig = vis.show_slopesavg(SBJ_DT(suj), coefs, polyn, tslice);
+        
+        splitpath = strsplit(filepath{sess}, {'\'});
+        filename = splitpath{end};
+        vis.savefigure(slpfig, rootpath, filename(1:end-3), "slopesavg");
+        close(slpfig);
     end
 end
 
@@ -369,26 +492,7 @@ end
 % 
 % end
 
-function showPEBaselines__(SBJ_DT, rootpath)
-
-    subj_list = [ SBJ_DT.names ];
-
-    for suj=1:length(subj_list)
-        filepath = SBJ_DT(suj).filespath;
-        EEG = SBJ_DT(suj).tasks;
-        metrics = SBJ_DT(suj).metrics;
-
-        for sess=1:length(filepath)
-            splitpath = strsplit(filepath{sess}, {'\'});
-            filename = splitpath{end};
-            basefig = vis.show_pebaselines(EEG(sess), metrics(sess));
-            vis.savefigure(basefig, rootpath, filename, "pebases");
-            close(basefig);
-        end
-    end
-end
-
-function time2plot = show_ERPSpec__(SBJ_DT, rootpath, chans, ev_range, f_range, taskinfo)
+function time2plot = show_ERPSpec__(SBJ_DT, rootpath, chans, ev_range, f_range, taskinfo, lang)
 
     if nargin < 6
         taskinfo = ["nfb", "speccom"];
@@ -398,10 +502,17 @@ function time2plot = show_ERPSpec__(SBJ_DT, rootpath, chans, ev_range, f_range, 
     subj_list = [ SBJ_DT.names ];
     infodata.taskinfo = taskinfo;
     
+    if (nargin < 7 || strcmp(lang, 'ptbr'))
+        infodata.figtitle = { "Dado " + "Original " + upper(taskinfo(1)), "Dado \it{Surrogates}"};
+    elseif strcmp(lang, 'en')
+        infodata.figtitle = { "Original " + upper(taskinfo(1)) + " Data", "Surrogates Data"};
+    else
+        infodata.figtitle = { "Dado " + "Original " + upper(taskinfo(1)), "Dado \it{Surrogates}"};
+    end
+    
     for suj=1:length(subj_list)
         
         EEGev = get_taskdata__( SBJ_DT(suj), ev_range, taskinfo(1) );
-        infodata.figtitle = { "Original " + upper(taskinfo(1)) + " Data", "Surrogates Data"};
         
         for sess=1:length(SBJ_DT(suj).filespath)
             splitpath = strsplit(SBJ_DT(suj).filespath{sess}, {'\'});
@@ -412,7 +523,7 @@ function time2plot = show_ERPSpec__(SBJ_DT, rootpath, chans, ev_range, f_range, 
                                                         ev_range, ...
                                                         f_range, ...
                                                         chans, ...
-                                                        infodata );
+                                                        infodata, lang);
             
             vis.savefigure(currfig, rootpath, filename, endlabel);
             close(currfig);
@@ -447,10 +558,103 @@ function EEGev = get_taskdata__(SUJDT, tslice, taskinfo)
     end
 end
 
-function show_PSDSpec__(SBJ_DT, rootpath, channels, f_range, taskinfo)
+
+function show_evPETrials__(SBJ_DT, rootpath, ev_range, lang)
+
+    subj_list = [ SBJ_DT.names ];
+
+    for suj=1:length(subj_list)
+        filepath = SBJ_DT(suj).filespath;
+        EEGev = SBJ_DT(suj).events;
+
+        for sess=1:length(filepath)
+            splitpath = strsplit(filepath{sess}, {'\'});
+            filename = splitpath{end};
+
+            pefig = vis.show_evtrials(EEGev(sess), ev_range, lang);
+            vis.savefigure(pefig, rootpath, filename, "htrials");
+            close(pefig);
+        end
+    end
+end
+
+function showBandsBoxchart__(SBJ_DT, rootpath, lang)
+    
+    subj_list = [ SBJ_DT.names ];
+    
+    if (nargin < 3 || strcmp(lang, 'ptbr'))
+        bandlabels = {'Teta' 'RSM' 'Beta-Alto' 'Alfa'};
+    elseif strcmp(lang, 'en')
+        bandlabels = {'Theta' 'SMR' 'Hibeta' 'Alpha'};
+    else
+        bandlabels = {'Teta' 'RSM' 'Beta-Alto' 'Alfa'};
+    end
+%     labels = SBJ_DT.filespath;
+    for suj=1:length(subj_list)
+        filename = SBJ_DT(suj).names;
+        
+        boxfig = vis.gen_boxchart(SBJ_DT(suj), bandlabels, lang);
+        
+        for band=1:length(bandlabels)
+            vis.savefigure(boxfig{band}, rootpath, filename, "box-"+bandlabels{band});
+            close(boxfig);
+        end
+    end
+end
+
+function showCoefsBoxchart__(SBJ_DT, rootpath, lang)
+    
+    subj_list = [ SBJ_DT.names ];
+%     bandlabels = {'Theta' 'SMR' 'Hibeta' 'Alpha'};
+    
+    for suj=1:length(subj_list)
+        filename = SBJ_DT(suj).names;
+%         aux      = cellfun(@(x) split(x, "_"), SBJ_DT(suj).filespath,'UniformOutput',false);
+%         labels   = cellfun(@(x) x{2}, aux,'UniformOutput',false);
+        
+        boxfig = vis.gen_coefsboxchart(SBJ_DT(suj), lang);
+        
+%         for band=1:length(bandlabels)
+        vis.savefigure(boxfig, rootpath, filename, "slopebox");
+        close(boxfig);
+%         end
+    end
+end
+
+function showPEBaselines__(SBJ_DT, rootpath, lang)
+
+    subj_list = [ SBJ_DT.names ];
+
+    for suj=1:length(subj_list)
+        filepath = SBJ_DT(suj).filespath;
+        EEG = SBJ_DT(suj).tasks;
+        metrics = SBJ_DT(suj).metrics;
+
+        for sess=1:length(filepath)
+            splitpath = strsplit(filepath{sess}, {'\'});
+            filename = splitpath{end};
+            basefig = vis.show_pebaselines(EEG(sess), metrics(sess), lang);
+            vis.savefigure(basefig, rootpath, filename, "pebases");
+            close(basefig);
+        end
+    end
+end
+
+function show_PSDSpec__(SBJ_DT, rootpath, channels, f_range, taskinfo, lang)
 
     if nargin < 5
         taskinfo = ["nfb", "psdnfb"];
+    end
+    
+    if (nargin < 6 || strcmp(lang, 'ptbr'))
+        chan = 'Canal C3';
+        surchan = 'Dado \it{Surrogate}';
+    elseif strcmp(lang, 'en')
+        chan = 'C3 channel';
+        surchan = 'Surrogate';
+    else
+        chan = 'Canal C3';
+        surchan = 'Dado \it{Surrogate}';
     end
     
     ev_range = [0 1];
@@ -469,65 +673,11 @@ function show_PSDSpec__(SBJ_DT, rootpath, channels, f_range, taskinfo)
             pop_spectopo(EEGev(sess), 1, [], 'EEG', ...
                          'freqrange', f_range, ...
                          'plotchans', channels);
-            legend('C3 channel','Surrogate');
+            legend(chan, surchan);
             
             vis.savefigure(specfig, rootpath, filename, endlabel);
             close(specfig);
         end
-    end
-end
-
-function show_evPETrials__(SBJ_DT, rootpath, ev_range)
-
-    subj_list = [ SBJ_DT.names ];
-
-    for suj=1:length(subj_list)
-        filepath = SBJ_DT(suj).filespath;
-        EEGev = SBJ_DT(suj).events;
-
-        for sess=1:length(filepath)
-            splitpath = strsplit(filepath{sess}, {'\'});
-            filename = splitpath{end};
-
-            pefig = vis.show_evtrials(EEGev(sess), ev_range);
-            vis.savefigure(pefig, rootpath, filename, "htrials");
-            close(pefig);
-        end
-    end
-end
-
-function showBandsBoxchart__(SBJ_DT, rootpath)
-    
-    subj_list = [ SBJ_DT.names ];
-    bandlabels = {'Theta' 'SMR' 'Hibeta' 'Alpha'};
-%     labels = SBJ_DT.filespath;
-    
-    for suj=1:length(subj_list)
-        filename = SBJ_DT(suj).names;
-        
-        boxfig = vis.gen_boxchart(SBJ_DT(suj), bandlabels);
-        
-        for band=1:length(bandlabels)
-            vis.savefigure(boxfig{band}, rootpath, filename, "box-"+bandlabels{band});
-        end
-    end
-end
-
-function showCoefsBoxchart__(SBJ_DT, rootpath)
-    
-    subj_list = [ SBJ_DT.names ];
-%     bandlabels = {'Theta' 'SMR' 'Hibeta' 'Alpha'};
-    
-    for suj=1:length(subj_list)
-%         filename = SBJ_DT(suj).names;
-        aux      = cellfun(@(x) split(x, "_"), SBJ_DT(suj).filespath,'UniformOutput',false);
-        labels   = cellfun(@(x) x{2}, aux,'UniformOutput',false);
-        
-        boxfig = vis.gen_coefsboxchart(SBJ_DT(suj), labels);
-        
-%         for band=1:length(bandlabels)
-%             vis.savefigure(boxfig{band}, rootpath, filename, "box-"+bandlabels{band});
-%         end
     end
 end
 

@@ -8,15 +8,15 @@ classdef fntools
             numpnts  = EEG.nfb.pnts;
             
             [p,fp,tp] = pspectrum(dt, times,'spectrogram', ...
-                                  'TimeResolution', numpnts/srate, ...
+                                  'TimeResolution', numpnts/srate/2, ...
                                   'Leakage',0.85, ... %hann window
                                   'OverlapPercent', 50, ...
                                   'FrequencyLimits', [0 100]);
+                              
             [se,te] = pentropy(p,fp,tp);
-            
+           
         end
 % -------------------------------------------------------------------------
-
 %         function [Hdatas, EEG] = pesurdata(EEG, filename, istherefile, savesurdata) %, delay, order, windowSize)
         function [EEG] = pesurdata(EEG, filename, savesurpath, loadsurdata, savesurdata)
             
@@ -31,12 +31,12 @@ classdef fntools
             sbjname = sbjname(1);
             surfolder = join([savesurpath, 'surdatas', sbjname, "sur"], "\");
             
-            [~, npnts] = size(EEG.data);
-%             Hdatas = struct();
-            permH = zeros(1,npnts);
-            surpermH = zeros(1,npnts);
-            surdata = zeros(1,npnts);
-            labels = {'Surrogate', 'PermH', 'SurPermH'};
+            [~, npnts] = size(EEG.data); %             Hdatas = struct();
+            permH      = zeros(1,npnts);
+            surpermH   = zeros(1,npnts);
+            surdata    = zeros(1,npnts);
+%             SpecH      = zeros(1,npnts);
+%             SurSpecH   = zeros(1,npnts);
 
             delay = 1; % delay 1 between points in ordinal patterns (successive points)
             order = 3; % order 3 of ordinal patterns (4-points ordinal patterns)
@@ -60,18 +60,28 @@ classdef fntools
                 surdata = IAAFTsur(EEG.data(1,:), 1);
             end
             
-            permH(1:npnts-windowSize-2) = PE(EEG.data(1,:)', delay, order, windowSize);
+            permH(1:npnts-windowSize-2)    = PE(EEG.data(1,:)', delay, order, windowSize);
             surpermH(1:npnts-windowSize-2) = PE(surdata', delay, order, windowSize);
-            data = {surdata, permH, surpermH};
+            SpecH    = interpSpecH__(EEG, 1);  % 1 - data chan
+            data = {surdata, permH, surpermH, SpecH};
+            labels = {'Surrogate', 'PermH', 'SurPermH', 'SpecH'};
             
             [row, ~] = size(EEG.data);
             if row < 11
-                for i=1:3
+                for i=1:4
                     EEG.data(end+1,:) = data{i};
                     EEG.nbchan = EEG.nbchan + 1;
                     EEG.chanlocs(end+1).labels = labels{i};
                 end
             end
+            
+%             SpecH    = interpSpecH(EEG, 1);  % 1 - data
+%             SurSpecH = interpSpecH(EEG, 11); % 11 - surrogate chan
+%             slabel = {'SpecH', 'SurSpecH'};
+            
+            EEG.data(end+1,:) = interpSpecH__(EEG, 11); % 11 - surrogate chan
+            EEG.nbchan = EEG.nbchan + 1;
+            EEG.chanlocs(end+1).labels = 'SurSpecH';
             
             if savesurdata
                 disp(">> Saving surDatas to..." +newline+ surdatapath);
@@ -218,3 +228,23 @@ end
 % -------------------------------------------------------------------------
     end
 end
+
+function  se = interpSpecH__(EEG, chan) %te, specH, rhpe, ccoef)
+
+    dt       = EEG.data( chan,:,:);
+    times    = EEG.times;
+    srate    = EEG.srate;
+    numpnts  = EEG.pnts;
+
+    [p,fp,tp] = pspectrum(dt, times,'spectrogram', ...
+                          'TimeResolution', numpnts/srate, ...
+                          'Leakage',0.85, ... %hann window
+                          'OverlapPercent', 50, ...
+                          'FrequencyLimits', [0 100]);
+
+    [se,te] = pentropy(p,fp,tp);
+
+    se = interp1(te, se, times, 'spline');
+%             te = times;
+end
+% -------------------------------------------------------------------------
