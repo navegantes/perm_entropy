@@ -4,8 +4,8 @@ methods (Static)
 
         EEG      = EEGsuj.tasks(sess);
         EEGev    = EEGsuj.events(sess);
-        pe       = EEG.nfb.data(12,:,:);
-        surpe    = EEG.nfb.data(13,:,:);
+%         pe       = EEG.nfb.data(12,:,:);
+%         surpe    = EEG.nfb.data(13,:,:);
         times    = EEG.nfb.times;
 %         [te, se] = fntools.calcSpecH(EEG);
         

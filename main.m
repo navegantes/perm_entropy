@@ -308,7 +308,8 @@ function [statsdata, soma] = show_statsTrials__(SBJ_DT, rootpath) %, ev_range, l
         filepath = SBJ_DT(suj).filespath;
         EEGev    = SBJ_DT(suj).events;
         stats = cell(1,2);
-        soma = zeros(5,4);
+        statsum = {zeros(5,4), zeros(5,4)};
+        ntrials = zeros(5,1);
         
         for sess=1:length(filepath)
             splitpath = strsplit(filepath{sess}, {'\'});
@@ -328,36 +329,64 @@ function [statsdata, soma] = show_statsTrials__(SBJ_DT, rootpath) %, ev_range, l
             hval = {zeros(numtrials, numdata), zeros(numtrials, numdata)};
             Sval = {cell(numtrials, numdata), cell(numtrials, numdata)};
             
-            for dt=1:numdata
-                [rp, rh, rS] = calc_stats(entrData{dt}, numtrials, tindx, 'runksum');
-                [tp, th, tS] = calc_stats(entrData{dt}, numtrials, tindx, 'ttest');
-                pval{1}(:,dt) = rp;
-                hval{1}(:,dt) = rh;
-                pval{2}(:,dt) = tp;
-                hval{2}(:,dt) = th;
-                for t=1:numtrials
-                    Sval{1}{t,dt} =  rS{t};
-                    Sval{2}{t,dt} =  tS{t};
+            test = {'ranksum', 'ttest'};
+            for sts=1:2
+                for dt=1:numdata
+                    [rp, rh, rS] = calc_stats(entrData{dt}, numtrials, tindx, test{sts});
+                    pval{sts}(:,dt) = rp;
+                    hval{sts}(:,dt) = rh;
+                    for t=1:numtrials
+                        Sval{sts}{t,dt} =  rS{t};
+                    end
                 end
+
+                stats{sts}(sess).p = pval{sts};
+                stats{sts}(sess).h = hval{sts};
+                stats{sts}(sess).S = Sval{sts};
+                
+                statsum{sts}(sess, :) = sum(hval{sts});
+                ntrials(sess,1)       = numtrials;
             end
-            
-            stats{1}(sess).p = pval{1};
-            stats{1}(sess).h = hval{1};
-            stats{1}(sess).S = Sval{1};
-            stats{2}(sess).p = pval{2};
-            stats{2}(sess).h = hval{2};
-            stats{2}(sess).S = Sval{2};
-            
-            soma(sess, :) = sum(hval{1});
-            disp(sum(hval{1}))
-            
-%             pefig = vis.show_evtrials(EEGev(sess), ev_range, lang);
-%             vis.savefigure(pefig, rootpath, filename, "htrials");
-%             close(pefig);
         end
-        statsdata(suj).runksum = stats{1};
+        statsdata(suj).ranksum = stats{1};
+        soma(suj).ranksum      = statsum{1};
         statsdata(suj).ttest   = stats{2};
+        soma(suj).ttest        = statsum{2};
+        
+        show_numtrials(soma(suj).ranksum, ntrials, test{1});
+        show_numtrials(soma(suj).ttest,   ntrials, test{2});
     end
+end
+
+function show_numtrials(data, ntrials, ttitle)
+
+    figure;
+    plot(data, 'o-');
+    legs = {'EP', 'EPSu', 'EE', 'EESu'};
+    legend(legs);
+    xticks([1 2 3 4 5]);
+    xticklabels({"S1 " + "("+ string(ntrials(1)) + ")", ...
+                 "S2 " + "("+ string(ntrials(2)) + ")", ...
+                 "S3 " + "("+ string(ntrials(3)) + ")", ...
+                 "S4 " + "("+ string(ntrials(4)) + ")", ...
+                 "S5 " + "("+ string(ntrials(5)) + ")"});
+    xlim([0.5 7]);
+    ylabel('Numero \it{Trials}', 'FontSize', 14);
+    title(ttitle);
+
+    figure;
+    plot(data./ntrials, 'o-');
+    legs = {'EP', 'EPSu', 'EE', 'EESu'};
+    legend(legs);
+    xticks([1 2 3 4 5]);
+    xticklabels({"S1 " + "("+ string(ntrials(1)) + ")", ...
+                 "S2 " + "("+ string(ntrials(2)) + ")", ...
+                 "S3 " + "("+ string(ntrials(3)) + ")", ...
+                 "S4 " + "("+ string(ntrials(4)) + ")", ...
+                 "S5 " + "("+ string(ntrials(5)) + ")"});
+    xlim([0.5 7]);
+    ylabel('Numero Relativo \it{Trials} (ntrial/total)', 'FontSize', 14);
+    title(ttitle);
 end
 
 function tindex = get_evtimeindxs(times, trange)
@@ -367,7 +396,7 @@ function tindex = get_evtimeindxs(times, trange)
     tindex = [t_evdne t_zero t_evend];
 end
 
-function [p, h, S] = calc_stats(evdata, numtrials, tindx, test)
+function [p, h, S] = calc_stats(trialsdata, numtrials, tindx, test)
     
     p = zeros(numtrials, 1);
     h = zeros(numtrials, 1);
@@ -378,13 +407,13 @@ function [p, h, S] = calc_stats(evdata, numtrials, tindx, test)
     tevend = tindx(3); % samp: 250
     
     for trial=1:numtrials
-        x = evdata(dnevet:tzero-1,trial);
-        y = evdata(tzero+1:tevend,trial);
+        x = trialsdata(dnevet:tzero-1,trial);
+        y = trialsdata(tzero+1:tevend,trial);
         if strcmp(test, 'ranksum')
-            [p(trial), h(trial), S{trial}] = ranksum(x, y);
+            [p(trial), h(trial), S{trial}] = ranksum(x, y, 'tail', 'right');
         end
         if strcmp(test, 'ttest')
-            [h(trial), p(trial), ~, S{trial}] = ttest(x, y);
+            [h(trial), p(trial), ~, S{trial}] = ttest(x, y,'Tail','right');
         end
     end
 end
