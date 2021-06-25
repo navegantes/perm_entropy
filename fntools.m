@@ -6,9 +6,10 @@ classdef fntools
             times    = EEG.nfb.times;
             srate    = EEG.nfb.srate;
             numpnts  = EEG.nfb.pnts;
+            timeres  = (numpnts/srate)/10
             
             [p,fp,tp] = pspectrum(dt, times,'spectrogram', ...
-                                  'TimeResolution', numpnts/srate/2, ...
+                                  'TimeResolution', timeres, ...
                                   'Leakage',0.85, ... %hann window
                                   'OverlapPercent', 50, ...
                                   'FrequencyLimits', [0 100]);
@@ -17,7 +18,6 @@ classdef fntools
            
         end
 % -------------------------------------------------------------------------
-%         function [Hdatas, EEG] = pesurdata(EEG, filename, istherefile, savesurdata) %, delay, order, windowSize)
         function [EEG] = pesurdata(EEG, filename, savesurpath, loadsurdata, savesurdata)
             
             if nargin < 4   % if the number of inputs equals 2
@@ -62,7 +62,7 @@ classdef fntools
             
             permH(1:npnts-windowSize-2)    = PE(EEG.data(1,:)', delay, order, windowSize);
             surpermH(1:npnts-windowSize-2) = PE(surdata', delay, order, windowSize);
-            SpecH    = interpSpecH__(EEG, 1);  % 1 - data chan
+            SpecH    = fntools.interpSpecH__(EEG, 1);  % 1 - data chan
             data = {surdata, permH, surpermH, SpecH};
             labels = {'Surrogate', 'PermH', 'SurPermH', 'SpecH'};
             
@@ -79,7 +79,7 @@ classdef fntools
 %             SurSpecH = interpSpecH(EEG, 11); % 11 - surrogate chan
 %             slabel = {'SpecH', 'SurSpecH'};
             
-            EEG.data(end+1,:) = interpSpecH__(EEG, 11); % 11 - surrogate chan
+            EEG.data(end+1,:) = fntools.interpSpecH__(EEG, 11); % 11 - surrogate chan
             EEG.nbchan = EEG.nbchan + 1;
             EEG.chanlocs(end+1).labels = 'SurSpecH';
             
@@ -87,6 +87,25 @@ classdef fntools
                 disp(">> Saving surDatas to..." +newline+ surdatapath);
                 save(surdatapath, 'surdata');
             end
+        end
+% -------------------------------------------------------------------------
+        function  se = interpSpecH__(EEG, chan) %te, specH, rhpe, ccoef)
+
+            dt       = EEG.data( chan,:,:);
+            times    = EEG.times;
+            srate    = EEG.srate;
+            numpnts  = EEG.pnts;
+
+            [p,fp,tp] = pspectrum(dt, times,'spectrogram', ...
+                                  'TimeResolution', numpnts/srate, ...
+                                  'Leakage',0.85, ... %hann window
+                                  'OverlapPercent', 50, ...
+                                  'FrequencyLimits', [0 100]);
+
+            [se,te] = pentropy(p,fp,tp);
+
+            se = interp1(te, se, times, 'spline');
+        %             te = times;
         end
 % -------------------------------------------------------------------------
         function [EEG] = create_events(EEG, rwdchan, latency, RWD_label, ...
@@ -143,27 +162,27 @@ classdef fntools
             end
         end
 % -------------------------------------------------------------------------
-function EEG = rejtrends(EEG)
-    % Rejection Trends
-    % OUTEEG = pop_rejtrend( INEEG, typerej, elec_comp, winsize, maxslope, minR, superpose, reject,calldisp);
-    disp("..." +newline+ ">> Trend rejection...")
-    winsize = floor(0.25 * EEG.srate);
-    rejmarked = 1;
-    EEG = pop_rejtrend(EEG, 1, [1], winsize, .6, .65, 1,rejmarked, 0);
-end
+        function EEG = rejtrends(EEG)
+            % Rejection Trends
+            % OUTEEG = pop_rejtrend( INEEG, typerej, elec_comp, winsize, maxslope, minR, superpose, reject,calldisp);
+            disp("..." +newline+ ">> Trend rejection...")
+            winsize = floor(0.25 * EEG.srate);
+            rejmarked = 1;
+            EEG = pop_rejtrend(EEG, 1, [1], winsize, .6, .65, 1,rejmarked, 0);
+        end
 
-function EEG = rejspec(EEG)
-    disp("..." +newline+ ">> Spec rejection...")
+        function EEG = rejspec(EEG)
+            disp("..." +newline+ ">> Spec rejection...")
 
-    [EEG, rejindx] = pop_rejspec( EEG, 1, ...
-                                  'elecrange', [1:1], ...
-                                  'threshold', [-30 30], ...
-                                  'freqlimits', [1 100], ...
-                                  'method', 'fft', ...
-                                  'eegplotreject', 1, ...
-                                  'eegplotplotallrej', 0);
-    EEG.rejindices = rejindx;
-end
+            [EEG, rejindx] = pop_rejspec( EEG, 1, ...
+                                          'elecrange', [1:1], ...
+                                          'threshold', [-30 30], ...
+                                          'freqlimits', [1 100], ...
+                                          'method', 'fft', ...
+                                          'eegplotreject', 1, ...
+                                          'eegplotplotallrej', 0);
+            EEG.rejindices = rejindx;
+        end
 % -------------------------------------------------------------------------
         function perm_entr = pe_bytrials(EEG, chan)
 %             addpath('PE');
@@ -206,45 +225,52 @@ end
             end
         end
 % -------------------------------------------------------------------------
-        function bandsPWR = calc_bandpower(EEGev, frange)
+        function bandsPWR = calc_bandpower(EEGev, chan, frange)
             
             if nargin<2 || isempty(frange)
                 frange = {[4 7] [12 15] [20 30] [8 12]};
             end
+            
+            numBands      = length(frange);
+            bandsPWR      = {cell(1, numBands), cell(1, numBands)};
+            norwdbandsPWR = cell(1, numBands);
+            
+            dt    = permute(EEGev.data(chan,:,:), [2 3 1]);
+            times = EEGev.times;
+            
+            trange = [0 250];
+            tindx  = get_evtimeindxs(times, trange);
+            tdne   = tindx(1);
+            tzero  = tindx(2);
+            tend   = tindx(3);
+            
+            totpwr      = bandpower(dt(tzero:tend,:), EEGev.srate, [1 100]);
+            norwdtotpwr = bandpower(dt(tdne:tzero,:), EEGev.srate, [1 100]);
 
-            numBands = length(frange);
-            bandsPWR = cell(1, numBands);
-            dt = permute(EEGev.data(1,:,:), [2 3 1]);
-            totpwr = bandpower(dt);
-
+%             for rwd=1:2
             for bnd=1:numBands
-                pBand = bandpower(dt, EEGev.srate, frange{bnd});
-                bandsPWR{bnd} = pBand./totpwr;
+                pwrBand          = bandpower(dt(tzero:tend,:), EEGev.srate, frange{bnd});
+                norwdpwrBand     = bandpower(dt(tdne:tzero,:), EEGev.srate, frange{bnd});
+                bandsPWR{1}{bnd} = norwdpwrBand./norwdtotpwr;
+                bandsPWR{2}{bnd} = pwrBand./totpwr;
+                
 %                 disp(["BAND: " + bnd]);
             end
-            bandsPWR = vertcat(bandsPWR{:})';
+%             end
+            bandsPWR{1}      = vertcat(bandsPWR{1}{:})';
+            bandsPWR{2}      = vertcat(bandsPWR{2}{:})';
+%             norwdbandsPWR = vertcat(norwdbandsPWR{:})';
         end
 % -------------------------------------------------------------------------
 % -------------------------------------------------------------------------
     end
 end
 
-function  se = interpSpecH__(EEG, chan) %te, specH, rhpe, ccoef)
-
-    dt       = EEG.data( chan,:,:);
-    times    = EEG.times;
-    srate    = EEG.srate;
-    numpnts  = EEG.pnts;
-
-    [p,fp,tp] = pspectrum(dt, times,'spectrogram', ...
-                          'TimeResolution', numpnts/srate, ...
-                          'Leakage',0.85, ... %hann window
-                          'OverlapPercent', 50, ...
-                          'FrequencyLimits', [0 100]);
-
-    [se,te] = pentropy(p,fp,tp);
-
-    se = interp1(te, se, times, 'spline');
-%             te = times;
+% -------------------------------------------------------------------------
+function tindex = get_evtimeindxs(times, trange)
+    t_zero  = dsearchn(times', trange(1));
+    t_evend = dsearchn(times', trange(2));
+    t_evdne = dsearchn(times', -1*trange(2));
+    tindex = [t_evdne t_zero t_evend];
 end
 % -------------------------------------------------------------------------

@@ -86,7 +86,8 @@ for suj=1:length(subj_list)
                                                           filename, rejspecevent); % true - rejspec
         disp("..." +newline+ ...
              "Eventos criados. Sessao: " + string(sess));
-%         SBJ_DT(suj).bandspower{sess,1} = fntools.calc_bandpower(SBJ_DT(suj).events(sess), frange);
+        SBJ_DT(suj).bandspower{sess,1}    = fntools.calc_bandpower(SBJ_DT(suj).events(sess), 1, frange);
+        SBJ_DT(suj).surbandspower{sess,1} = fntools.calc_bandpower(SBJ_DT(suj).events(sess), 11, frange);
     end
 
     SBJ_DT(suj).tasks = TASKS;
@@ -98,12 +99,19 @@ end
 % VISUALIZACAO
 % -------------------------------------------------------------------------
 %% ------------------------------------------------------------------------
+
 % Comparação espectro nfb/surrogate (confirmar resultado do feedback)
 f_range = [1 45];
 chans = [1 11];
 taskinfo = ["nfb", "speccom"];
 
 time2plotnfb = show_ERPSpec__(SBJ_DT, rootpath, chans, ev_range, f_range, taskinfo, lang);
+% % Comparação espectro baseline pre-pos
+% bs_evrange = [0 1];
+% taskinfo = ["bs1", "specbs1"];
+% time2plotbs1 = show_ERPSpec__(SBJ_DT, rootpath, chans, bs_evrange, f_range, taskinfo, lang);
+% taskinfo = ["bs2", "specbs2"];
+% time2plotbs2 = show_ERPSpec__(SBJ_DT, rootpath, chans, bs_evrange, f_range, taskinfo, lang);
 
 %% ------------------------------------------------------------------------
 % Visualiza PE dado e surrogate por trials;
@@ -111,16 +119,15 @@ show_evPETrials__(SBJ_DT, rootpath, ev_range, lang);
 %% ------------------------------------------------------------------------
 
 
-
 show_Entropies__(SBJ_DT, rootpath, lang);
 %% ------------------------------------------------------------------------
 
 
 [SBJ_DT] = show_SlopesAVG__(SBJ_DT, rootpath, lang);
-% % ------------------------------------------------------------------------
+%% ------------------------------------------------------------------------
 
 showCoefsBoxchart__(SBJ_DT, rootpath, lang);
-% % ------------------------------------------------------------------------
+%% ------------------------------------------------------------------------
 
 if savesbjdata
     num = char(string(length(SBJ_DT)));
@@ -133,13 +140,6 @@ end
 % Comparação PE entre baseline Pre, Pos, NFB
 % Correlação e Ws distance
 % showPEBaselines__(SBJ_DT, rootpath, lang);
-% % ------------------------------------------------------------------------
-% % Comparação espectro baseline pre-pos
-% bs_evrange = [0 1];
-% taskinfo = ["bs1", "specbs1"];
-% time2plotbs1 = show_ERPSpec__(SBJ_DT, rootpath, chans, bs_evrange, f_range, taskinfo, lang);
-% taskinfo = ["bs2", "specbs2"];
-% time2plotbs2 = show_ERPSpec__(SBJ_DT, rootpath, chans, bs_evrange, f_range, taskinfo, lang);
 
 % % ------------------------------------------------------------------------
 % % Mostra espectro potencia PSD
@@ -184,7 +184,7 @@ pop_erpimage(dt,1, chan,[[]],dt.chanlocs(chan).labels,1,1,{},[],'' , ...
 figure
 bndPWR = SBJ_DT(1).bandspower;
 for sess=1:5
-    plot(bndPWR{sess}(:,2), 'o-', 'linewidth', 1.2);
+    plot(bndPWR{sess}{2}(:,2), 'o-', 'linewidth', 1.);
     hold on;
 end
 hold off;
@@ -211,30 +211,111 @@ end
 title('Permutation Entropy  Data');
 legend('show');
 % hold off;
-%%
-% Mean Permutation Entropy
-figure
-suj = 1;
-for i=1:5
-    datasur = SBJ_DT(suj).events(i).data(12,:,:);
-    dtmeansur = mean(datasur, 3);
-    setname = SBJ_DT(suj).events(i).setname;
-    times = SBJ_DT(suj).events(i).times;
-    
-    plot(times, dtmeansur,'linewidth',2,'DisplayName', setname(12:13));
-    hold on;
-end
-title('Mean Permutation Entropy');
-legend('show');
-hold off;
+%% ------------------------------------------------------------------------
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %                LOCAL VIS FUNCTIONS                %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%%
-[statsdata, soma] = show_statsTrials__(SBJ_DT, rootpath);
-%%
+%% ------------------------------------------------------------------------
+
+[SBJ_DT] = show_SlopesAVG__(SBJ_DT, 12, rootpath, lang);
+[SBJ_DT] = show_SlopesAVG__(SBJ_DT, 13, rootpath, lang);
+%% ------------------------------------------------------------------------
+
+SBJ_DT = show_statsTrials__(SBJ_DT, rootpath);
+%% ------------------------------------------------------------------------
+
+show_bandpower(SBJ_DT, rootpath);
+%% ------------------------------------------------------------------------
+function show_bandpower(SBJ_DT, rootpath)
+
+    subj_list = [ SBJ_DT.names ];
+    
+    for suj=1:length(subj_list)
+        filepath = SBJ_DT(suj).filespath;
+        splitpath = strsplit(filepath{1}, {'\'});
+        filename = splitpath{end};
+        
+        bandpwr    = SBJ_DT.bandspower;
+        surbandpwr = SBJ_DT.surbandspower;
+
+        bandnames = {'Teta', 'SMR', 'Hibeta', 'Alpha'};
+        lenband = length(bandnames);
+
+        bandmean    = {zeros(5,lenband), zeros(5,lenband)};
+        bandstd     = {zeros(5,lenband), zeros(5,lenband)};
+        surbandmean = {zeros(5,lenband), zeros(5,lenband)};
+        surbandstd  = {zeros(5,lenband), zeros(5,lenband)};
+
+        data    = bandpwr;
+        surdata = surbandpwr;
+
+        for rwd=1:2
+            for i=1:5
+                for band=1:lenband
+                    bandmean{rwd}(i,band)    = mean(data{i}{rwd}(:,band));
+                    bandstd{rwd}(i,band)     = std(data{i}{rwd}(:,band));
+                    surbandmean{rwd}(i,band) = mean(surdata{i}{rwd}(:,band));
+                    surbandstd{rwd}(i,band)  = std(surdata{i}{rwd}(:,band));
+                end
+            end
+        end
+        infos.rootpath  = rootpath;
+        infos.filename  = filename(1:3);
+        
+        infos.legend    = {'Dados', 'Surr'};
+        infos.sufixname = "-datasurr";
+        show_bars(bandmean{2}, bandstd{2}, surbandmean{2}, surbandstd{2}, bandnames, infos);
+        
+        infos.legend    = {'Antes Reforço', 'Depois Reforço'};
+        infos.sufixname = "-nrwdrwd";
+        show_bars(bandmean{1}, bandstd{1}, bandmean{2}, bandstd{2}, bandnames, infos);
+    end
+end
+
+function show_bars(data1, std1, data2, std2, bandnames, infos)
+    
+    fig = cell(1,4);
+    lenband = length(bandnames); 
+    hexcolors = {'#D95319', '#0072BD'};
+    
+    for bi=1:lenband
+        fig{bi} = figure;
+        meanbar = bar([data1(:,bi), data2(:,bi)]); hold on;
+        meanbar(1).FaceColor = hexcolors{1};
+        meanbar(2).FaceColor = hexcolors{2};
+        
+        er1 = errorbar(meanbar(1).XEndPoints, meanbar(1).YData, std1(:,bi));
+        er1.Color = hexcolors{1}; %[0 0 0]; % meanbar(bi).FaceColor;
+        er1.LineStyle = '--';
+        er1.LineWidth = 1.2;
+        er2 = errorbar(meanbar(2).XEndPoints, meanbar(2).YData, std2(:,bi));
+        er2.Color = hexcolors{2}; %[0 0 0];
+        er2.LineStyle = '-';
+        er2.LineWidth = 1.2;
+        
+        m1 = max([data1(:,bi); data2(:,bi)]);
+        m2 = max([std1(:,bi); std2(:,bi)]);
+        
+        ylim([-0.01 m1+m2+0.05]);
+        
+        title(bandnames{bi}, 'FontSize', 16);
+        legend(infos.legend);
+        ylabel('Potencia Relativa (%)', 'FontSize', 14);
+        xlabel('Sessões', 'FontSize', 14);
+        
+        sfxname = bandnames{bi} + infos.sufixname ;
+        vis.savefigure(fig{bi}, infos.rootpath, infos.filename, sfxname, 'bands' )
+        close(fig{bi});
+    end
+%     for f=1:lenband
+%         sfxname = bandnames{f} + infos.sufixname ;
+%         disp(filename(1:3))
+%         vis.savefigure(barfig{f}, rootpath, filename(1:3), sfxname, 'bands' )
+%         close(fig{bi});
+%     end
+end
 
 function showevents(SBJ_DT)
 
@@ -299,7 +380,7 @@ function show_Entropies__(SBJ_DT, rootpath, lang)
     end
 end
 
-function [statsdata, soma] = show_statsTrials__(SBJ_DT, rootpath) %, ev_range, lang)
+function SBJ_DT = show_statsTrials__(SBJ_DT, rootpath) %, ev_range, lang)
 
     subj_list = [ SBJ_DT.names ];
     trange    = [0 250];
@@ -348,13 +429,17 @@ function [statsdata, soma] = show_statsTrials__(SBJ_DT, rootpath) %, ev_range, l
                 ntrials(sess,1)       = numtrials;
             end
         end
-        statsdata(suj).ranksum = stats{1};
-        soma(suj).ranksum      = statsum{1};
-        statsdata(suj).ttest   = stats{2};
-        soma(suj).ttest        = statsum{2};
         
-        show_numtrials(soma(suj).ranksum, ntrials, test{1});
-        show_numtrials(soma(suj).ttest,   ntrials, test{2});
+        statsdata.ranksum = stats{1};
+        soma.ranksum      = statsum{1};
+        statsdata.ttest   = stats{2};
+        soma.ttest        = statsum{2};
+        
+        SBJ_DT(suj).StatsData = statsdata;
+        SBJ_DT(suj).StatSum   = soma;
+        
+        show_numtrials(soma.ranksum, ntrials, test{1});
+        show_numtrials(soma.ttest,   ntrials, test{2});
     end
 end
 
@@ -418,7 +503,7 @@ function [p, h, S] = calc_stats(trialsdata, numtrials, tindx, test)
     end
 end
 
-function [SBJ_DT] = show_SlopesAVG__(SBJ_DT, rootpath, lang)
+function [SBJ_DT] = show_SlopesAVG__(SBJ_DT, chan, rootpath, lang)
 
     if (nargin < 3 || strcmp(lang, 'ptbr'))
         lang = 'ptbr'; %'en';
@@ -443,34 +528,30 @@ function [SBJ_DT] = show_SlopesAVG__(SBJ_DT, rootpath, lang)
         prwdpolyn    = cell(numsess, 1);
 
         for sess=1:numsess
-            EEGev   = SBJ_DT(suj).events(sess);
-            datasur = EEGev.data(12,:,:);
-            times   = SBJ_DT(suj).events(sess).times;
-            [tslice, tind]  = timeslice(times, trange);
+            EEGev          = SBJ_DT(suj).events(sess);
+            chanlabels     = {EEGev.chanlocs.labels}; 
+            datasur        = EEGev.data(chan,:,:);
+            times          = SBJ_DT(suj).events(sess).times;
+            [tslice, tind] = timeslice(times, trange);
             
             dtmeansur{sess} = mean(datasur, 3);%             [mpcoefs{sess}, mpolyn{sess}, tmslope] = polyslope__(dtmeansur{sess}, times);
-            mpcoefs{sess} = polyfit(tslice, dtmeansur{sess,1}(tind(1):tind(2)), 1);
-            mpolyn{sess}  = polyval(mpcoefs{sess}, tslice); % + mpcoefs{sess}(2);
+            mpcoefs{sess}   = polyfit(tslice{2}, dtmeansur{sess,1}(tind(2):tind(3)), 1);
+            mpolyn{sess}    = polyval(mpcoefs{sess}, tslice{2}); % + mpcoefs{sess}(2);
             
-            [trialslpcoef{sess}, trialpoly{sess}, prwdcoefs{sess}, prwdpolyn{sess}] = calc_slopes(EEGev, tind);
+            [trialslpcoef{sess}, trialpoly{sess}, prwdcoefs{sess}, prwdpolyn{sess}] = calc_slopes(EEGev, chan, tind);
             
-            SBJ_DT(suj).metrics(sess).slopecoefs  = trialslpcoef{sess};
-            SBJ_DT(suj).metrics(sess).pslopecoefs = prwdcoefs{sess};
-            
-%             mprwdcoefs = mean(prwdcoefs{sess});
-            
-%             coefsmean = string(sess) + " COEFSmean:  " + string(mean(trialslpcoef{sess}(:,1)));
-%             meancoef  = string(sess) + " MeanCoef :  " + string(mpcoefs{sess}(1));
-%             disp(coefsmean);
-%             disp(meancoef);
+            SBJ_DT(suj).metrics(sess).slopecoefs.(chanlabels{chan})  = trialslpcoef{sess};
+            SBJ_DT(suj).metrics(sess).pslopecoefs.(chanlabels{chan}) = prwdcoefs{sess};
         end
-        coefs = {mpcoefs, prwdcoefs};
-        polyn = {mpolyn, prwdpolyn, tind};
-        slpfig = vis.show_slopesavg(SBJ_DT(suj), coefs, polyn, tslice);
         
-        splitpath = strsplit(filepath{sess}, {'\'});
-        filename = splitpath{end};
-        vis.savefigure(slpfig, rootpath, filename(1:end-3), "slopesavg");
+        coefs  = {prwdcoefs, mpcoefs};
+        polyn  = {prwdpolyn, mpolyn, tind};
+        slpfig = vis.show_slopesavg(SBJ_DT(suj), chan, coefs, polyn, tslice, lang);
+        
+        chanlabels = {SBJ_DT(1).events(1).chanlocs.labels};
+        splitpath  = strsplit(filepath{sess}, {'\'});
+        filename   = splitpath{end};
+        vis.savefigure(slpfig, rootpath, filename(1:end-3), "slopesavg-" + chanlabels{chan});
         close(slpfig);
     end
 end
@@ -478,48 +559,37 @@ end
 function [tslice, tindex] = timeslice(times, trange)
     tzero  = dsearchn(times', trange(1));
     tevend = dsearchn(times', trange(2));
-    tindex = [tzero tevend];
-    tslice = times(tzero:tevend);
+    tevdne = dsearchn(times', -1*trange(2));
+    tindex = [tevdne tzero tevend];
+    tslice = {times(tevdne:tzero), times(tzero:tevend)};
 end
 
-function [pcoefs, polyn, prwdcoefs, prwdpolyn] = calc_slopes(EEGev, trange)
+function [pcoefs, polyn, prwdcoefs, prwdpolyn] = calc_slopes(EEGev, chan, trange)
     
-    petrials  = permute(EEGev.data(12,:,:), [2 3 1]); % (lentime, numtrials)
+    petrials  = permute(EEGev.data(chan,:,:), [2 3 1]); % (lentime, numtrials)
 %     surpetrials = permute(EEGev.data(13,:,:), [2 3 1])';
     times     = EEGev.times;
-    tzero     = trange(1);
-    tevend    = trange(2);
+    tevdne    = trange(1);
+    tzero     = trange(2);
+    tevend    = trange(3);
     numtrials = size(petrials, 2);
-    lentime   = (tevend-tzero)+1;
-    tslice    = times(tzero:tevend);
+    lentime   = (tevend-tzero)+1; % <<<<<<%%%
+    tslice    = {times(tevdne:tzero), times(tzero:tevend)};
     
     pcoefs    = zeros(numtrials, 2);
     prwdcoefs = zeros(numtrials, 2);
     polyn     = zeros(lentime, numtrials); %cell(numtrials, 1);
-    prwdpolyn = zeros(tzero, numtrials);
+    prwdpolyn = zeros(lentime, numtrials);
     
     for trial=1:numtrials
 %         [pcoefs(trial,:), polyn(:,trial), ~] = polyslope__(petrials(:,trial), times);
-        pcoefs(trial,:)    = polyfit(tslice, petrials(tzero:tevend, trial), 1);
-        polyn(:,trial)     = polyval(pcoefs(trial,:), tslice); % + pcoefs(trial,2);
-        prwdcoefs(trial,:) = polyfit(times(1:tzero), petrials(1:tzero, trial), 1);
-        prwdpolyn(:,trial) = polyval(prwdcoefs(trial,:), times(1:tzero));
+        pcoefs(trial,:)    = polyfit(tslice{2}, petrials(tzero:tevend, trial), 1);
+        polyn(:,trial)     = polyval(pcoefs(trial,:), tslice{2}); % + pcoefs(trial,2);
+        prwdcoefs(trial,:) = polyfit(times(tevdne:tzero), petrials(tevdne:tzero, trial), 1);
+        prwdpolyn(:,trial) = polyval(prwdcoefs(trial,:), times(tevdne:tzero));
     end
 
 end
-
-% function [pcoefs, polyn, tmslope] = polyslope__(datasur, times, sloperng)
-% 
-% %     dtmeansur = mean(datasur, 3);
-% 
-%     tzero = dsearchn(times', 0);
-%     tevend = dsearchn(times', 250);
-%     tmslope = times(tzero:tevend);
-%     
-%     pcoefs = polyfit(tmslope, datasur(tzero:tevend), 1);
-%     polyn = pcoefs(1).*tmslope + pcoefs(2);
-% 
-% end
 
 function time2plot = show_ERPSpec__(SBJ_DT, rootpath, chans, ev_range, f_range, taskinfo, lang)
 
@@ -645,7 +715,7 @@ function showCoefsBoxchart__(SBJ_DT, rootpath, lang)
         
 %         for band=1:length(bandlabels)
         vis.savefigure(boxfig, rootpath, filename, "slopebox");
-        close(boxfig);
+%         close(boxfig);
 %         end
     end
 end

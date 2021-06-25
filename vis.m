@@ -59,12 +59,12 @@ methods (Static)
         hold off;
     end
 % -------------------------------------------------------------------------
-    function fig = show_slopesavg(SBJ_DT, coefs, polyn, tmslope, lang)
+    function fig = show_slopesavg(SBJ_DT, chan, coefs, polyn, tmslope, lang)
         
         mpcoefs     = coefs{1};
         prwdpcoefs  = coefs{2};
-        mpolyn      = polyn{1};
-        prwdmpolyn  = polyn{2};
+        mpolyn      = polyn{2};
+        prwdmpolyn  = polyn{1};
         trange      = polyn{3};
     %     subj_list = [ SBJ_DT.names ];
     %     for suj=1:length(subj_list)
@@ -72,7 +72,7 @@ methods (Static)
         numsess = length(SBJ_DT.filespath);
         mM = [Inf -Inf];
         
-        if (nargin < 5 || strcmp(lang, 'ptbr'))
+        if (nargin < 6 || strcmp(lang, 'ptbr'))
             sesstitlelabel = 'Sessão ';
             y_label = 'Entropia de Permutação';
             x_label = 'Tempo (segundo)';
@@ -88,7 +88,7 @@ methods (Static)
 %             [0.9290 0.6940 0.1250], [0.4940 0.1840 0.5560], [0.4660 0.6740 0.1880]};
         for sess=1:numsess
             EEGev = SBJ_DT.events(sess);
-            datasur = EEGev.data(12,:,:);
+            datasur = EEGev.data(chan,:,:);
             times = SBJ_DT.events(sess).times;
             dtmeansur = mean(datasur, 3);
             mM = check_minmax(dtmeansur, mM);
@@ -114,9 +114,9 @@ methods (Static)
         for sess=1:numsess
             mprwdpolyn = mean(prwdmpolyn{sess}, 2)';
 %             X = [X, sprintf("S" +string(sess)+" %6.4g", mpcoefs{sess}(1))];
-            plot(tmslope, mpolyn{sess}, 'k-.','linewidth',3); %, 'DisplayName', X);
+            plot(tmslope{2}, mpolyn{sess}, 'k-.','linewidth',3); %, 'DisplayName', X);
             hold on;
-            plot(times(1:trange(1)), mprwdpolyn, '-.','linewidth',3, 'Color', [.64 .08 .18]); %, 'DisplayName', X);
+            plot(tmslope{1}, mprwdpolyn, '-.','linewidth',3, 'Color', [.64 .08 .18]); %, 'DisplayName', X);
             hold on;
         end
 %         infodata = {X, 0};
@@ -333,7 +333,7 @@ methods (Static)
         setannon__(cursbplot, infodata); %corbs(NFB), wass(NFB));
     end
 % -------------------------------------------------------------------------
-    function savefigure(fig, rootpath, filename, figlabel)
+    function savefigure(fig, rootpath, filename, figlabel, subfolder)
 
         figDir = join([rootpath, "fig"], "\");
 %             if ~isfolder(figDir)
@@ -342,7 +342,11 @@ methods (Static)
 
         sbjName = strsplit(filename, "-");
         sbjName = sbjName{1};
-        sbjFigDir = join([figDir, sbjName], "\");
+        if nargin < 5
+            sbjFigDir = join([figDir, sbjName], "\");
+        else
+            sbjFigDir = join([figDir, sbjName, subfolder], "\");
+        end
 
         if ~isfolder(sbjFigDir)
             mkdir(char(sbjFigDir));
@@ -399,7 +403,7 @@ function boxfig = gen_coefsboxchart(SBJ_DT, lang)
         if (nargin < 2 || strcmp(lang, 'ptbr'))
             y_label = 'Coeficiente Angular';
             x_label = 'Sessões';
-            cat = {'Sem Reforço','Reforço'};
+            cat = {'Antes Reforço','Depois Reforço'};
         elseif strcmp(lang, 'en')
             y_label = 'Slope Coefficients';
             x_label = 'Sessions';
