@@ -13,7 +13,7 @@ chdir(rootpath);
 addpath('PE');
 addpath('functions');
 
-subj_list = ["JLC"]; % ["EYK", "JLC", "JRJ", "SAJ"];
+subj_list = ["EYK"]; % ["EYK", "JLC", "JRJ", "SAJ"];
 SBJ_DT = struct();
 
 SBJ_DT = fntools.gendatastruct(datapath, SBJ_DT, subj_list );
@@ -122,10 +122,6 @@ show_evPETrials__(SBJ_DT, rootpath, ev_range, lang);
 show_Entropies__(SBJ_DT, rootpath, lang);
 %% ------------------------------------------------------------------------
 
-
-[SBJ_DT] = show_SlopesAVG__(SBJ_DT, rootpath, lang);
-%% ------------------------------------------------------------------------
-
 showCoefsBoxchart__(SBJ_DT, rootpath, lang);
 %% ------------------------------------------------------------------------
 
@@ -218,16 +214,98 @@ legend('show');
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% ------------------------------------------------------------------------
-
-[SBJ_DT] = show_SlopesAVG__(SBJ_DT, 12, rootpath, lang);
-[SBJ_DT] = show_SlopesAVG__(SBJ_DT, 13, rootpath, lang);
+chans = [12 13];
+for c=1:2
+    [SBJ_DT] = show_SlopesAVG__(SBJ_DT, chans(c), rootpath, lang);
+% [SBJ_DT] = show_SlopesAVG__(SBJ_DT, 13, rootpath, lang);
+end
 %% ------------------------------------------------------------------------
 
-SBJ_DT = show_statsTrials__(SBJ_DT, rootpath);
+% SBJ_DT = show_statsTrials__(SBJ_DT, rootpath);
+
+SBJ_DT = show_crosStatsTrials__(SBJ_DT, rootpath, lang);
 %% ------------------------------------------------------------------------
 
 show_bandpower(SBJ_DT, rootpath);
 %% ------------------------------------------------------------------------
+
+function SBJ_DT = show_crosStatsTrials__(SBJ_DT, rootpath, lang) %, ev_range, lang)
+    
+    if (nargin < 3 || strcmp(lang, 'ptbr'))
+        lang = 'ptbr'; %'en';
+    else
+        lang = 'en';
+    end
+
+    subj_list = [ SBJ_DT.names ];
+    trange    = [0 250];
+    
+    for suj=1:length(subj_list)
+        filepath = SBJ_DT(suj).filespath;
+        EEGev    = SBJ_DT(suj).events;
+        statsdt  = {cell(5,1), cell(5,1)};
+        statsum  = {zeros(5,2), zeros(5,2)};
+        ntrials  = zeros(5,1);
+        
+        for sess=1:length(filepath)
+            tindx = get_evtimeindxs(EEGev(sess).times, trange);
+            
+            numtrials = EEGev(sess).trials;
+            pe        = permute(EEGev(sess).data(12,:,:), [2 3 1]);
+            pesu      = permute(EEGev(sess).data(13,:,:), [2 3 1]);
+            se        = permute(EEGev(sess).data(14,:,:), [2 3 1]);
+            sesu      = permute(EEGev(sess).data(15,:,:), [2 3 1]);
+            entrData  = {pe, pesu, se, sesu};
+            
+%             numdata = length(entrData);
+            pval = {zeros(numtrials, 2), zeros(numtrials, 2)};
+            hval = {zeros(numtrials, 2), zeros(numtrials, 2)};
+            Sval = {cell(numtrials, 2), cell(numtrials, 2)};
+            
+            test = {'ranksum', 'ttest'};
+            for sts=1:2
+                [pval{sts}, hval{sts}, rS] = stats.cross_stats(pe, pesu, tindx, test{sts});
+                for rwd=1:2
+                    for t=1:numtrials
+                        Sval{sts}{t,rwd} = rS{rwd}{t,1};
+                    end
+                end
+                
+                statsdt{sts}{sess}.p = pval{sts};
+                statsdt{sts}{sess}.h = hval{sts};
+                statsdt{sts}{sess}.S = Sval{sts};
+                
+                statsum{sts}(sess, :) = sum(hval{sts});
+                ntrials(sess,1)       = numtrials;
+            end
+        end
+        
+        Crosstats.ranksum = statsdt{1};
+        Crossum.ranksum   = statsum{1};
+        Crosstats.ttest   = statsdt{2};
+        Crossum.ttest     = statsum{2};
+        
+        SBJ_DT(suj).Crosstats = Crosstats;
+        SBJ_DT(suj).Crossum   = Crossum;
+        
+        splitpath = strsplit(filepath{sess}, {'\'});
+        filename  = splitpath{end};
+        
+        info.title = '';
+        info.legend = {'EP-EPsu: nRWD', 'EP-EPsu: RWD'};
+        
+        [fig, fign] = vis.show_numtrials(Crossum.ranksum, ntrials, info, lang);
+%         vis.savefigure(fig,  rootpath, filename(1:3), "stats-ranksum");
+%         vis.savefigure(fign, rootpath, filename(1:3), "stats-ranksum-n");
+%         close(fig); close(fign);
+%         
+%         [fig, fign] = vis.show_numtrials(soma.ttest,   ntrials, test{2}, lang);
+%         vis.savefigure(fig,  rootpath, filename(1:3), "stats-ttest");
+%         vis.savefigure(fign, rootpath, filename(1:3), "stats-ttest-n");
+%         close(fig); close(fign);
+    end
+end
+
 function show_bandpower(SBJ_DT, rootpath)
 
     subj_list = [ SBJ_DT.names ];
@@ -261,9 +339,9 @@ function show_bandpower(SBJ_DT, rootpath)
                 end
             end
         end
+        
         infos.rootpath  = rootpath;
         infos.filename  = filename(1:3);
-        
         infos.legend    = {'Dados', 'Surr'};
         infos.sufixname = "-datasurr";
         show_bars(bandmean{2}, bandstd{2}, surbandmean{2}, surbandstd{2}, bandnames, infos);
@@ -380,7 +458,13 @@ function show_Entropies__(SBJ_DT, rootpath, lang)
     end
 end
 
-function SBJ_DT = show_statsTrials__(SBJ_DT, rootpath) %, ev_range, lang)
+function SBJ_DT = show_statsTrials__(SBJ_DT, rootpath, lang) %, ev_range, lang)
+    
+    if (nargin < 3 || strcmp(lang, 'ptbr'))
+        lang = 'ptbr'; %'en';
+    else
+        lang = 'en';
+    end
 
     subj_list = [ SBJ_DT.names ];
     trange    = [0 250];
@@ -388,14 +472,11 @@ function SBJ_DT = show_statsTrials__(SBJ_DT, rootpath) %, ev_range, lang)
     for suj=1:length(subj_list)
         filepath = SBJ_DT(suj).filespath;
         EEGev    = SBJ_DT(suj).events;
-        stats = cell(1,2);
-        statsum = {zeros(5,4), zeros(5,4)};
-        ntrials = zeros(5,1);
+        statsdt  = {cell(5,1), cell(5,1)};
+        statsum  = {zeros(5,4), zeros(5,4)};
+        ntrials  = zeros(5,1);
         
         for sess=1:length(filepath)
-            splitpath = strsplit(filepath{sess}, {'\'});
-            filename  = splitpath{end};
-            
             tindx = get_evtimeindxs(EEGev(sess).times, trange);
             
             numtrials = EEGev(sess).trials;
@@ -413,65 +494,47 @@ function SBJ_DT = show_statsTrials__(SBJ_DT, rootpath) %, ev_range, lang)
             test = {'ranksum', 'ttest'};
             for sts=1:2
                 for dt=1:numdata
-                    [rp, rh, rS] = calc_stats(entrData{dt}, numtrials, tindx, test{sts});
+                    [rp, rh, rS] = stats.calc_stats(entrData{dt}, numtrials, tindx, test{sts});
                     pval{sts}(:,dt) = rp;
                     hval{sts}(:,dt) = rh;
                     for t=1:numtrials
                         Sval{sts}{t,dt} =  rS{t};
                     end
                 end
-
-                stats{sts}(sess).p = pval{sts};
-                stats{sts}(sess).h = hval{sts};
-                stats{sts}(sess).S = Sval{sts};
+                
+                statsdt{sts}{sess}.p = pval{sts};
+                statsdt{sts}{sess}.h = hval{sts};
+                statsdt{sts}{sess}.S = Sval{sts};
                 
                 statsum{sts}(sess, :) = sum(hval{sts});
                 ntrials(sess,1)       = numtrials;
             end
         end
         
-        statsdata.ranksum = stats{1};
+        statsdata.ranksum = statsdt{1};
         soma.ranksum      = statsum{1};
-        statsdata.ttest   = stats{2};
+        statsdata.ttest   = statsdt{2};
         soma.ttest        = statsum{2};
         
         SBJ_DT(suj).StatsData = statsdata;
         SBJ_DT(suj).StatSum   = soma;
         
-        show_numtrials(soma.ranksum, ntrials, test{1});
-        show_numtrials(soma.ttest,   ntrials, test{2});
+        splitpath = strsplit(filepath{sess}, {'\'});
+        filename  = splitpath{end};
+        
+        info.title = test{1};
+        info.legend = {'EP', 'EPSu', 'EE', 'EESu'};
+        [fig, fign] = vis.show_numtrials(soma.ranksum, ntrials, info, lang);
+        vis.savefigure(fig,  rootpath, filename(1:3), "stats-ranksum");
+        vis.savefigure(fign, rootpath, filename(1:3), "stats-ranksum-n");
+        close(fig); close(fign);
+        
+        info.title = test{2};
+        [fig, fign] = vis.show_numtrials(soma.ttest,   ntrials, info, lang);
+        vis.savefigure(fig,  rootpath, filename(1:3), "stats-ttest");
+        vis.savefigure(fign, rootpath, filename(1:3), "stats-ttest-n");
+        close(fig); close(fign);
     end
-end
-
-function show_numtrials(data, ntrials, ttitle)
-
-    figure;
-    plot(data, 'o-');
-    legs = {'EP', 'EPSu', 'EE', 'EESu'};
-    legend(legs);
-    xticks([1 2 3 4 5]);
-    xticklabels({"S1 " + "("+ string(ntrials(1)) + ")", ...
-                 "S2 " + "("+ string(ntrials(2)) + ")", ...
-                 "S3 " + "("+ string(ntrials(3)) + ")", ...
-                 "S4 " + "("+ string(ntrials(4)) + ")", ...
-                 "S5 " + "("+ string(ntrials(5)) + ")"});
-    xlim([0.5 7]);
-    ylabel('Numero \it{Trials}', 'FontSize', 14);
-    title(ttitle);
-
-    figure;
-    plot(data./ntrials, 'o-');
-    legs = {'EP', 'EPSu', 'EE', 'EESu'};
-    legend(legs);
-    xticks([1 2 3 4 5]);
-    xticklabels({"S1 " + "("+ string(ntrials(1)) + ")", ...
-                 "S2 " + "("+ string(ntrials(2)) + ")", ...
-                 "S3 " + "("+ string(ntrials(3)) + ")", ...
-                 "S4 " + "("+ string(ntrials(4)) + ")", ...
-                 "S5 " + "("+ string(ntrials(5)) + ")"});
-    xlim([0.5 7]);
-    ylabel('Numero Relativo \it{Trials} (ntrial/total)', 'FontSize', 14);
-    title(ttitle);
 end
 
 function tindex = get_evtimeindxs(times, trange)
@@ -479,28 +542,6 @@ function tindex = get_evtimeindxs(times, trange)
     t_evend = dsearchn(times', trange(2));
     t_evdne = dsearchn(times', -1*trange(2));
     tindex = [t_evdne t_zero t_evend];
-end
-
-function [p, h, S] = calc_stats(trialsdata, numtrials, tindx, test)
-    
-    p = zeros(numtrials, 1);
-    h = zeros(numtrials, 1);
-    S = cell(numtrials, 1);
-    
-    dnevet = tindx(1); % samp: -250
-    tzero  = tindx(2); % samp: 0
-    tevend = tindx(3); % samp: 250
-    
-    for trial=1:numtrials
-        x = trialsdata(dnevet:tzero-1,trial);
-        y = trialsdata(tzero+1:tevend,trial);
-        if strcmp(test, 'ranksum')
-            [p(trial), h(trial), S{trial}] = ranksum(x, y, 'tail', 'right');
-        end
-        if strcmp(test, 'ttest')
-            [h(trial), p(trial), ~, S{trial}] = ttest(x, y,'Tail','right');
-        end
-    end
 end
 
 function [SBJ_DT] = show_SlopesAVG__(SBJ_DT, chan, rootpath, lang)

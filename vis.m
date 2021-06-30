@@ -1,5 +1,60 @@
 classdef vis
 methods (Static)
+    
+    function [fig, fign] = show_numtrials(data, ntrials, info, lang)
+        
+        ttitle = info.title;
+        legs = info.legend;
+    
+        if (nargin < 4 || strcmp(lang, 'ptbr'))
+            y_label  = 'Numero \it{Trials}';
+            yn_label = 'Numero Relativo \it{Trials}';
+            x_label  = 'Sessões';
+        elseif strcmp(lang, 'en')
+            y_label  = 'Number of Trials';
+            yn_label = 'Relative Number of Trials';
+            x_label  = 'Sessions';
+        else
+            y_label  = 'Numero \it{Trials}';
+            yn_label = 'Numero Relativo \it{Trials}';
+            x_label  = 'Sessões';
+        end
+
+        fig = figure;
+        plot(data, 'o-', 'LineWidth', 1.7, 'MarkerFaceColor', 'auto', 'MarkerSize', 4);
+    %     p.MarkerFaceColor = 'auto';
+%         legs = {'EP', 'EPSu', 'EE', 'EESu'};
+        legend(legs);
+        xticks([1 2 3 4 5]);
+        xticklabels({"S1 " + "("+ string(ntrials(1)) + ")", ...
+                     "S2 " + "("+ string(ntrials(2)) + ")", ...
+                     "S3 " + "("+ string(ntrials(3)) + ")", ...
+                     "S4 " + "("+ string(ntrials(4)) + ")", ...
+                     "S5 " + "("+ string(ntrials(5)) + ")"});
+        xlim([0.5 7]);
+        ylabel(y_label, 'FontSize', 14);
+        xlabel(x_label, 'FontSize', 14);
+    %     title(ttitle);
+
+        fign = figure;
+        plot(data./ntrials, 'o-', 'LineWidth', 1.7, 'MarkerFaceColor', 'auto', 'MarkerSize', 4);
+%         legs = {'EP', 'EPSu', 'EE', 'EESu'};
+        legend(legs);
+        xticks([1 2 3 4 5]);
+        xticklabels({"S1 ($ \frac{" + string(data(1)) + "}{" + string(ntrials(1)) + "}$)", ...
+                     "S2 ($ \frac{" + string(data(2)) + "}{" + string(ntrials(2)) + "}$)", ...
+                     "S3 ($ \frac{" + string(data(3)) + "}{" + string(ntrials(3)) + "}$)", ...
+                     "S4 ($ \frac{" + string(data(4)) + "}{" + string(ntrials(4)) + "}$)", ...
+                     "S5 ($ \frac{" + string(data(5)) + "}{" + string(ntrials(5)) + "}$)"} );
+        xlim([0.5 7]);
+        ylabel(yn_label, 'FontSize', 14);
+        xlabel(x_label,  'FontSize', 14);
+        ax = gca;
+        ax.TickLabelInterpreter = 'latex';
+%     ax.FontSize = 8;
+%     title(ttitle);
+    end
+% -------------------------------------------------------------------------
     function show_entropies(EEGsuj, fig, sess, annonbox, lang)
 
         EEG      = EEGsuj.tasks(sess);

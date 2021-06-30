@@ -6,7 +6,7 @@ classdef fntools
             times    = EEG.nfb.times;
             srate    = EEG.nfb.srate;
             numpnts  = EEG.nfb.pnts;
-            timeres  = (numpnts/srate)/10
+            timeres  = (numpnts/srate)/10;
             
             [p,fp,tp] = pspectrum(dt, times,'spectrogram', ...
                                   'TimeResolution', timeres, ...
